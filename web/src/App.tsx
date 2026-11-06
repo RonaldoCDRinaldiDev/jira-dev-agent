@@ -7,6 +7,7 @@ import {
   useSync,
   useNotifActions,
   fetchRepoFor,
+  fetchRoute,
   useTimesheet,
   useTimesheetAction,
   useFinalize,
@@ -290,7 +291,7 @@ function Feed({
             )}
             <div className="item-actions">
               <button className="btn sm" onClick={() => onWork(n)}>
-                Enviar ao agente
+                Trabalhar na task
               </button>
               {!n.read && (
                 <button className="btn sm ghost" onClick={() => markRead.mutate(n.id)}>
@@ -912,6 +913,7 @@ export function App() {
   const [showSetup, setShowSetup] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [preset, setPreset] = useState<{ key: string; n: number; msg?: string } | null>(null);
+  const [reviewPreset, setReviewPreset] = useState<{ key: string; n: number } | null>(null);
   const { data: status } = useSetupStatus();
   const { start } = useTimesheetAction();
 
@@ -923,11 +925,18 @@ export function App() {
       ? `Vamos trabalhar na ${n.key}. Veja o último comentário e me proponha o plano.`
       : `Vamos trabalhar na ${n.key}.`;
 
-  // Automação central: a partir de uma notificação, liga tudo na mesma task.
-  const workOn = (n: Notification) => {
-    start.mutate({ key: n.key }); // 1) liga o cronômetro (Horas)
-    setPreset({ key: n.key, n: Date.now(), msg: openingMsg(n) }); // 2) manda pro Agente
-    setTab("agente"); // 3) abre o Agente
+  // Automação central: um botão só. O app olha a task e decide o destino —
+  // se VOCÊ é o reviewer, vai pro Code Review; se é o responsável, pro agente de dev.
+  const workOn = async (n: Notification) => {
+    start.mutate({ key: n.key }); // liga o cronômetro já (Horas)
+    const route = await fetchRoute(n.key);
+    if (route.target === "review") {
+      setReviewPreset({ key: n.key, n: Date.now() });
+      setTab("review");
+    } else {
+      setPreset({ key: n.key, n: Date.now(), msg: openingMsg(n) });
+      setTab("agente");
+    }
   };
   // Primeira vez (sem conexao configurada) abre a tela de login direto.
   const mustSetup = status !== undefined && !status.configured;
@@ -979,7 +988,7 @@ export function App() {
         )}
         {tab === "horas" && <TimesheetPanel />}
         {tab === "agente" && <AgentPanel preset={preset} />}
-        {tab === "review" && <ReviewPanel preset={null} />}
+        {tab === "review" && <ReviewPanel preset={reviewPreset} />}
       </main>
     </div>
   );

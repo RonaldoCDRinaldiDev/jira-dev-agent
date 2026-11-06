@@ -3,7 +3,7 @@ import { resolve } from "node:path";
 import Fastify from "fastify";
 import fastifyStatic from "@fastify/static";
 import { config } from "../config/index.js";
-import { getMyself } from "../jira/client.js";
+import { getMyself, routeForTask } from "../jira/client.js";
 import { getConnection, setConnection, isConfigured } from "../jira/connection.js";
 import { getNotifications, pollOnce, deleteNotification, markRead } from "../poll/index.js";
 import {
@@ -103,6 +103,11 @@ export function buildServer() {
   app.get<{ Querystring: { key: string } }>("/api/agent/repo-for", async (req) => ({
     repo: resolveRepo(req.query.key) ?? "",
   }));
+
+  // Decide se a task é pra DESENVOLVER ou REVISAR (reviewer = você -> review).
+  app.get<{ Querystring: { key: string } }>("/api/agent/route-for", async (req) =>
+    routeForTask(req.query.key),
+  );
 
   // ---- Timesheet ----
   app.get("/api/timesheet", async () => timesheetState());

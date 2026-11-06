@@ -1,4 +1,5 @@
 import { getConnection } from "./connection.js";
+import { config } from "../config/index.js";
 import type { Issue, IssueKey } from "../types.js";
 
 /**
@@ -70,6 +71,31 @@ export async function getIssue(key: IssueKey): Promise<Issue> {
 /** accountId do usuario logado (dono do token). */
 export async function getMyself(): Promise<{ accountId: string; displayName: string }> {
   return jiraRequest("GET", "/rest/api/3/myself");
+}
+
+/** Decide se a task e pra DESENVOLVER ou REVISAR, olhando quem e voce nela. */
+export async function routeForTask(
+  key: IssueKey,
+): Promise<{ target: "dev" | "review"; reason: string }> {
+  const me = await getMyself();
+  const issue = await getIssue(key);
+  const f = ((issue as unknown as { fields?: Record<string, any> }).fields) ?? {};
+  const assignee: string | undefined = f.assignee?.accountId;
+  const field = config.review.reviewerField;
+  const reviewer: string | undefined = field ? f[field]?.accountId : undefined;
+  const statusName: string = f.status?.name ?? "";
+  const inReview = config.review.statuses.some(
+    (s) => s.toLowerCase() === statusName.toLowerCase(),
+  );
+
+  // Regra: reviewer = você -> code review; responsável = você -> dev.
+  if (reviewer && reviewer === me.accountId)
+    return { target: "review", reason: "você é o reviewer desta task" };
+  if (assignee && assignee === me.accountId)
+    return { target: "dev", reason: "você é o responsável desta task" };
+  // Sem casar: se está em status de review, trata como review; senão, dev.
+  if (inReview) return { target: "review", reason: `task em "${statusName}"` };
+  return { target: "dev", reason: "desenvolvimento" };
 }
 
 /** Lista transicoes de status disponiveis para a issue. */

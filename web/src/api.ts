@@ -87,6 +87,11 @@ export const useNotifActions = () => {
 export const fetchRepoFor = (key: string): Promise<string> =>
   get<{ repo: string }>(`/api/agent/repo-for?key=${encodeURIComponent(key)}`).then((r) => r.repo).catch(() => "");
 
+// Decide, pela task no Jira, se o destino é o agente de dev ou o code review.
+export const fetchRoute = (key: string): Promise<{ target: "dev" | "review"; reason: string }> =>
+  get<{ target: "dev" | "review"; reason: string }>(`/api/agent/route-for?key=${encodeURIComponent(key)}`)
+    .catch(() => ({ target: "dev" as const, reason: "" }));
+
 // ---- Timesheet ----
 export interface TimesheetEntry {
   slot: string; key: string; minutes: number; source: string; logged: boolean; summary?: string;

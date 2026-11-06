@@ -29,15 +29,15 @@ O **jira-dev-agent** junta tudo num **cockpit local**. E, ao contrário da maior
 Tudo começa na aba **Notificações**. A partir de um aviso, uma coisa puxa a outra — e você só precisa aprovar o que mexe em código. Passo a passo:
 
 1. **Chega uma mudança no Jira** (novo status, um comentário, uma task nova) e ela aparece no feed.
-2. Você clica em **Enviar ao agente**. Nesse clique acontecem duas coisas sozinhas: o **cronômetro liga** (aba Horas) e a task **abre no chat do Agente** já com todo o contexto da issue.
-3. No **chat**, o agente faz o levantamento, te explica o plano e **vai codando — mas pede sua permissão antes de cada alteração**. Você acompanha tudo em tempo real, e a cada resposta ele fecha com um resumo **Feito / Falta / Status**, então você nunca fica perdido.
+2. Você clica em **Trabalhar na task** — um botão só. O app **olha a task e decide sozinho** o destino: se *você* é o **reviewer**, vai pro **Code Review**; se é o **responsável**, vai pro **agente de dev**. Em ambos os casos o **cronômetro liga** (aba Horas) e a aba certa abre já com o contexto da issue.
+3. **Se foi pro dev**, no **chat** o agente faz o levantamento, te explica o plano e **vai codando — mas pede sua permissão antes de cada alteração**. Você acompanha tudo em tempo real, e a cada resposta ele fecha com um resumo **Feito / Falta / Status**, então você nunca fica perdido.
 4. Quando o trabalho está pronto, você manda **finalizar**. O agente **pede uma última confirmação** e, com o seu "sim", fecha a task de ponta a ponta sem você precisar fazer nada manual:
    - **commita** as mudanças aprovadas,
    - **abre o Pull Request**,
-   - **move a task no Jira** (para Code Review / concluído),
+   - **move a task no Jira**,
    - **comenta a resolução** na própria issue,
    - e **lança as horas** trabalhadas no Jira.
-5. **Code review** acontece na aba própria. Quando *você* é quem revisa, abre a aba **Code Review**, aponta a task e a branch base, e o agente lê o *Change Set* (sua branch × a branch base), roda as checagens e te dá um **veredito** (passou ou precisa de ajuste). Dali você **Aprova + mergeia** (move pra *Pending Deploy*, comenta que passou e lança as horas do review) ou **Reprova** (move pra *Fail* e comenta o motivo detalhado).
+5. **Se foi pro Code Review**, o agente lê o *Change Set* (sua branch × a branch base), roda as checagens e te dá um **veredito**. Dali você **Aprova + mergeia** (aprova/mergeia a PR, move pra *Pending Deploy*, comenta que passou e lança as horas do review) ou **Reprova a task** (move pra *Fail* e comenta o motivo detalhado). As horas do review também são lançadas.
 
 Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo** — da primeira notificação até o PR aberto e as horas lançadas, sem sair desta tela.
 
@@ -49,7 +49,7 @@ Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo*
 
 ### 🔔 Notificações — a base de tudo
 
-O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você pode **Enviar ao agente** (o que já liga o cronômetro e abre a task na aba Agente), **marcar como lida** ou **excluir**.
+O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você clica em **Trabalhar na task** e o app decide sozinho o destino — **reviewer = você → Code Review**, **responsável = você → agente de dev** —, já ligando o cronômetro. Também dá pra **marcar como lida** ou **excluir**.
 
 <img src="docs/img/feat-notificacoes.svg" alt="Aba Notificações" width="100%" />
 
@@ -99,8 +99,9 @@ Tudo nasce na aba **Notificações** e cascateia para as outras:
 
 ```mermaid
 flowchart TD
-  N["🔔 Notificações"] -->|Enviar ao agente| A["🤖 Agente"]
-  R["🔍 Code Review (aba própria)"]
+  N["🔔 Notificações"] -->|Trabalhar na task| D{"você é o quê na task?"}
+  D -->|responsável| A["🤖 Agente de dev"]
+  D -->|reviewer| R["🔍 Code Review"]
   N -->|liga o cronômetro| H["⏱ Horas"]
   A -->|ao commitar| H
 ```
