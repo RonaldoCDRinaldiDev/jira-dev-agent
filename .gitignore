@@ -1,0 +1,20 @@
+# Dependencias e build
+node_modules/
+dist/
+*.tsbuildinfo
+
+# Segredos e config local (NUNCA versionar)
+.env
+.env.local
+config.env
+
+# Dados gerados em runtime (ficam so na maquina do usuario)
+data/
+*.log
+
+# SO / editor
+.DS_Store
+.idea/
+.vscode/
+web/src/*.js
+web/*.tsbuildinfo
