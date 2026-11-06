@@ -378,6 +378,64 @@ type ChatMsg = { id: string; role: "user" | "agent" | "tool" | "system" | "error
 let msgSeq = 0;
 const nextId = () => `m${++msgSeq}`;
 
+// Renderização leve de markdown inline: **negrito** e `código`.
+function inline(text: string): React.ReactNode[] {
+  const out: React.ReactNode[] = [];
+  const re = /(\*\*([^*]+)\*\*|`([^`]+)`)/g;
+  let last = 0;
+  let m: RegExpExecArray | null;
+  let k = 0;
+  while ((m = re.exec(text))) {
+    if (m.index > last) out.push(text.slice(last, m.index));
+    if (m[2] !== undefined) out.push(<strong key={k++}>{m[2]}</strong>);
+    else if (m[3] !== undefined) out.push(<code key={k++}>{m[3]}</code>);
+    last = m.index + m[0].length;
+  }
+  if (last < text.length) out.push(text.slice(last));
+  return out;
+}
+
+// Separa o corpo da resposta do bloco final Feito/Falta/Status (se houver).
+function splitFFS(text: string): { body: string; ffs?: { feito: string; falta: string; status: string } } {
+  const lines = text.split("\n");
+  let idx = -1;
+  for (let i = 0; i < lines.length; i++) if (/^[\s>*-]*\**\s*feito\s*\**\s*:/i.test(lines[i]!)) idx = i;
+  if (idx === -1) return { body: text };
+  const after = lines.slice(idx);
+  const grab = (label: string) => {
+    const re = new RegExp(`^[\\s>*-]*\\**\\s*${label}\\**\\s*:\\s*(.*)$`, "i");
+    for (const l of after) { const mm = l.match(re); if (mm) return mm[1]!.trim(); }
+    return "";
+  };
+  const feito = grab("feito"), falta = grab("falta"), status = grab("status");
+  if (!feito && !falta && !status) return { body: text };
+  return { body: lines.slice(0, idx).join("\n").trim(), ffs: { feito, falta, status } };
+}
+
+function AgentBody({ text }: { text: string }) {
+  const { body, ffs } = splitFFS(text);
+  const blocks = body.split("\n").filter((l) => l.trim() !== "");
+  return (
+    <div className="msg-body">
+      {blocks.map((l, i) => {
+        const bullet = /^[-*]\s+/.test(l);
+        return (
+          <p key={i} className={bullet ? "md-li" : "md-p"}>
+            {inline(bullet ? l.replace(/^[-*]\s+/, "") : l)}
+          </p>
+        );
+      })}
+      {ffs && (
+        <div className="ffs">
+          <div className="ffs-row ffs-feito"><span>Feito</span><p>{inline(ffs.feito)}</p></div>
+          <div className="ffs-row ffs-falta"><span>Falta</span><p>{inline(ffs.falta)}</p></div>
+          <div className="ffs-row ffs-status"><span>Status</span><p>{inline(ffs.status)}</p></div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function AgentPanel({ preset }: { preset: { key: string; n: number } | null }) {
   const [key, setKey] = useState("");
   const [repo, setRepo] = useState("");
@@ -494,7 +552,11 @@ function AgentPanel({ preset }: { preset: { key: string; n: number } | null }) {
         {msgs.map((m) => (
           <div key={m.id} className={`msg ${m.role}`}>
             {m.role === "tool" && <span className="msg-ico">⚙</span>}
-            <div className="msg-body">{m.text}</div>
+            {m.role === "agent" ? (
+              <AgentBody text={m.text} />
+            ) : (
+              <div className="msg-body">{m.text}</div>
+            )}
           </div>
         ))}
         {running && !perm && <div className="msg agent"><div className="msg-body typing">pensando…</div></div>}

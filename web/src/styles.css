@@ -241,3 +241,17 @@ select.inp { cursor: pointer; }
 }
 .modal h3 { font-family: var(--font-head); margin: 0 0 8px; font-size: 18px; font-weight: 600; }
 .modal p { margin: 0 0 18px; font-size: 14px; }
+
+/* Markdown leve + bloco Feito/Falta/Status destacado */
+.msg-body .md-p { margin: 0 0 6px; } .msg-body .md-p:last-child { margin: 0; }
+.msg-body .md-li { margin: 0 0 4px; padding-left: 16px; position: relative; }
+.msg-body .md-li::before { content: "•"; position: absolute; left: 2px; color: var(--accent-2); }
+.msg-body code { font-family: ui-monospace, Menlo, monospace; font-size: .88em; background: #0d0d15; border: 1px solid var(--bd); border-radius: 5px; padding: 1px 5px; }
+.ffs { margin-top: 12px; border: 1px solid var(--bd-2); border-radius: 11px; overflow: hidden; }
+.ffs-row { display: flex; gap: 12px; padding: 9px 13px; border-left: 3px solid var(--bd-2); align-items: baseline; }
+.ffs-row + .ffs-row { border-top: 1px solid var(--bd); }
+.ffs-row span { font-family: var(--font-head); font-size: 11px; text-transform: uppercase; letter-spacing: .05em; font-weight: 600; min-width: 50px; }
+.ffs-row p { margin: 0; font-size: 13.5px; line-height: 1.55; color: var(--t); }
+.ffs-feito { border-left-color: var(--ok); background: rgba(61,220,145,.07); } .ffs-feito span { color: #9ff3cf; }
+.ffs-falta { border-left-color: var(--status); background: rgba(240,180,41,.07); } .ffs-falta span { color: #f3cd9b; }
+.ffs-status { border-left-color: var(--accent); background: rgba(251,140,60,.08); } .ffs-status span { color: var(--accent-2); }

@@ -10,42 +10,74 @@
   <img alt="Local-first" src="https://img.shields.io/badge/local--first-privado-fb8c3c">
 </p>
 
-> Ferramenta local que reúne, numa tela só, as notificações do Jira, o controle de horas, um agente de desenvolvimento com IA e o code review. Cada ação que mexe em código passa pela sua aprovação.
+> Ferramenta **local** que reúne, numa tela só, as notificações do Jira, o controle de horas, um agente de desenvolvimento com IA e o code review. Cada ação que mexe em código passa pela sua aprovação.
+
+> As imagens abaixo usam **dados fictícios** (projeto `ACME`, pessoas e tasks inventadas) só para ilustrar o uso.
 
 ---
 
-## O que é
+## O que é e por que
 
-O **jira-dev-agent** é uma ferramenta **local** (roda na sua máquina) que junta num lugar só o que hoje fica espalhado no dia de um desenvolvedor:
+No dia a dia o desenvolvedor fica **pulando entre ferramentas**: Jira, editor, cronômetro, IA no terminal, GitHub no navegador. Cada troca custa tempo e atenção.
 
-- **Notificações** do Jira (status, comentários, responsável, novas issues) — e quem fez cada mudança.
-- **Timesheet automático** — conta as horas pela branch do git e lança no Jira ao commitar.
-- **Agente de desenvolvimento** — um chat ao vivo com IA (via Claude) que lê o código, propõe mudanças e **pede sua permissão antes de mexer em qualquer coisa**.
-- **Code Review** — um agente que revisa o *Change Set* (sua branch × a base) e aponta os problemas.
+O **jira-dev-agent** junta tudo num **cockpit local**. E, ao contrário da maioria dos agentes de IA que fazem tudo sozinhos, aqui a regra é o **seu controle**: a IA mostra o que está fazendo e **espera o seu OK** antes de qualquer alteração.
 
-Tudo começa na aba **Notificações**: de uma notificação você "Envia ao agente" ou "ao review", e isso já liga o cronômetro e abre a task na aba certa.
+---
 
-## Por que foi feito
+## O fluxo completo — da notificação ao PR
 
-No corre do dia a dia, o desenvolvedor fica **saltando entre ferramentas**: o Jira num lugar, o código no editor, o cronômetro na cabeça, o Claude no terminal, o GitHub no navegador. Cada troca de contexto custa tempo e atenção.
+Tudo começa na aba **Notificações**. A partir de um aviso, uma coisa puxa a outra — e você só precisa aprovar o que mexe em código. Passo a passo:
 
-E tem o outro lado: a maioria dos "agentes de IA" faz **tudo sozinho** e te mostra o resultado no fim — você perde o controle e a visibilidade. Aqui a filosofia é o oposto: **a IA expõe o que está fazendo e espera o seu OK**. A interação representa o **seu controle** + a **capacidade dela de comunicar**.
+1. **Chega uma mudança no Jira** (novo status, um comentário, uma task nova) e ela aparece no feed.
+2. Você clica em **Enviar ao agente**. Nesse clique acontecem duas coisas sozinhas: o **cronômetro liga** (aba Horas) e a task **abre no chat do Agente** já com todo o contexto da issue.
+3. No **chat**, o agente faz o levantamento, te explica o plano e **vai codando — mas pede sua permissão antes de cada alteração**. Você acompanha tudo em tempo real, e a cada resposta ele fecha com um resumo **Feito / Falta / Status**, então você nunca fica perdido.
+4. Quando o trabalho está pronto, você manda **finalizar**. O agente **pede uma última confirmação** e, com o seu "sim", fecha a task de ponta a ponta sem você precisar fazer nada manual:
+   - **commita** as mudanças aprovadas,
+   - **abre o Pull Request**,
+   - **move a task no Jira** (para Code Review / concluído),
+   - **comenta a resolução** na própria issue,
+   - e **lança as horas** trabalhadas no Jira.
+5. **Code review é a mesma ideia.** Quando *você* é quem revisa, clica em **Enviar ao review**: o agente lê o *Change Set* (sua branch × a branch base), roda as checagens e te dá um **veredito** (passou ou precisa de ajuste). Dali, com um clique, você **aprova/mergeia o PR** e **move o status** no Jira.
 
-## O que melhora
+Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo** — da primeira notificação até o PR aberto e as horas lançadas, sem sair desta tela.
 
-| Antes | Com o jira-dev-agent |
-|---|---|
-| Ficar atualizando o Jira pra ver o que mudou | Feed que avisa (e diz **quem** fez) |
-| Anotar horas na mão / esquecer de lançar | Horas contadas pela branch e lançadas no commit |
-| Copiar a descrição da task pro Claude no terminal | "Enviar ao agente" já leva o contexto da issue |
-| Agente que faz tudo sozinho | Agente que **propõe e espera seu OK** (portões) |
-| Revisar PR na mão | Agente de Code Review sobre o Change Set |
+---
+
+## Funcionalidades
+
+### 🔔 Notificações — a base de tudo
+
+O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você pode **Enviar ao agente** ou **Enviar ao review** (o que já liga o cronômetro e abre a task na aba certa), **marcar como lida** ou **excluir**.
+
+<img src="docs/img/feat-notificacoes.svg" alt="Aba Notificações" width="100%" />
+
+### ⏱ Horas — timesheet automático
+
+Conta o tempo de trabalho **pela branch do git** (ex.: `feature/ACME-312`), descontando ociosidade. Você inicia/para a sessão, e ao **commitar** na branch da task as horas são **lançadas no Jira** sozinhas.
+
+<img src="docs/img/feat-horas.svg" alt="Aba Horas" width="100%" />
+
+### 🤖 Agente de desenvolvimento — chat com portões
+
+Uma conversa ao vivo, como no Claude Code, só que nesta tela: o agente **lê o código**, mostra **o que está fazendo** (arquivos que lê, comandos que roda), explica o plano e **pede sua permissão antes de editar ou commitar**. Ele responde no padrão **Feito / Falta / Status** e segue o `AGENT.md` + o `CLAUDE.md` do repositório.
+
+<img src="docs/img/feat-agente.svg" alt="Aba Agente (chat)" width="100%" />
+
+Na hora de fechar, você manda o agente **finalizar** e ele executa tudo no chat — commit, push, abre o PR, move a task no Jira e lança as horas — terminando com o resumo **Feito / Falta / Status**:
+
+<img src="docs/img/feat-agente-finalizar.svg" alt="Agente finalizando a task" width="100%" />
+
+### 🔍 Code Review — revisão automática
+
+Um agente **read-only** que revisa o *Change Set* (sua branch × a branch base), roda as skills de revisão (segurança, arquitetura, testes, impacto…) e entrega os **findings com severidade** e um **veredito**. Dali você pode **analisar / aprovar o PR** e **mover o status** no Jira.
+
+<img src="docs/img/feat-review.svg" alt="Aba Code Review" width="100%" />
 
 ---
 
 ## Como funciona
 
-A ferramenta é um **cockpit local**: um backend (Node/TypeScript) que fala com o seu Jira, o seu git e a IA, e uma tela (React) onde tudo acontece.
+Um **cockpit local**: um backend (Node/TypeScript) que fala com o seu Jira, o seu git e a IA, e uma tela (React).
 
 ```mermaid
 flowchart LR
@@ -57,23 +89,21 @@ flowchart LR
   API <--> JIRA["Jira Cloud (sua conta)"]
 ```
 
-### As quatro abas (Notificações é a base)
+Tudo nasce na aba **Notificações** e cascateia para as outras:
 
 ```mermaid
 flowchart TD
-  N["🔔 Notificações<br/>(a base)"] -->|Enviar ao agente| A["🤖 Agente<br/>chat ao vivo"]
+  N["🔔 Notificações"] -->|Enviar ao agente| A["🤖 Agente"]
   N -->|Enviar ao review| R["🔍 Code Review"]
   N -->|liga o cronômetro| H["⏱ Horas"]
   A -->|ao commitar| H
 ```
 
-### O agente com portões
-
-Nada que mexe em código acontece sem você. Trabalho mecânico de git/Jira é automático; **código pede seu OK**.
+No agente, o trabalho mecânico de git/Jira é automático; **o que mexe em código pede seu OK**:
 
 ```mermaid
 flowchart LR
-  P["Levantamento<br/>(lê issue + código)"] -->|seu OK| S["Inicia task<br/>(branch + status)"]
+  P["Levantamento"] -->|seu OK| S["Inicia task<br/>(branch + status)"]
   S --> D["Propõe diff"]
   D -->|seu OK| C["Commit"]
   C --> PR["Abre PR"]
@@ -84,88 +114,65 @@ flowchart LR
   class S,PR,J auto
 ```
 
-### Capturas de tela
-
-**Notificações** — o feed, com quem fez cada mudança, o pai da issue, e as ações:
-
-<img src="docs/img/screen-notificacoes.svg" alt="Aba Notificações" width="100%" />
-
-**Agente** — conversa ao vivo: ele mostra o que lê/roda e pede permissão antes de editar:
-
-<img src="docs/img/screen-agente.svg" alt="Aba Agente (chat)" width="100%" />
-
 ---
 
 ## Como clonar e usar (em qualquer máquina)
 
-> Pré-requisitos: **git**, **nvm** (gerenciador de versões do Node) e uma conta no **Jira Cloud**. Para a parte de IA, uma assinatura do **Claude** (Pro/Max/Team/Enterprise).
+> Pré-requisitos: **git**, **nvm**, e uma conta no **Jira Cloud**. Para a IA, uma assinatura do **Claude**.
 
-### 1. Clonar e entrar na pasta
 ```sh
-git clone https://github.com/RonaldoCDRinaldiDev/jira-dev-agent.git
+# 1. clonar
+git clone <url-do-seu-repositorio> jira-dev-agent
 cd jira-dev-agent
-```
 
-### 2. Node 22 (sem mexer no Node dos seus outros projetos)
-```sh
+# 2. Node 22 (não afeta o Node dos seus outros projetos)
 nvm install 22
 nvm use 22
-```
-> Não tem nvm? Instale em https://github.com/nvm-sh/nvm. Ele deixa várias versões de Node convivendo — seus outros projetos continuam na versão deles.
 
-### 3. Instalar dependências (backend e tela)
-```sh
+# 3. dependências (backend e tela)
 npm install
 npm --prefix web install
-```
 
-### 4. Configurar o `.env`
-```sh
+# 4. configuração
 cp .env.example .env
-```
-Abra o `.env` e preencha (veja a seção **Configuração** abaixo). No mínimo: `JIRA_BASE_URL`, `JIRA_EMAIL`, `JIRA_API_TOKEN`.
+#   edite o .env: JIRA_BASE_URL, JIRA_EMAIL, JIRA_API_TOKEN
 
-### 5. Ligar a IA (opcional, só pro agente)
-```sh
+# 5. (opcional) ligar a IA do agente
 npm install -g @anthropic-ai/claude-code
 claude setup-token
-```
-Cole o token gerado na linha `CLAUDE_CODE_OAUTH_TOKEN=` do `.env`.
+#   cole o token em CLAUDE_CODE_OAUTH_TOKEN no .env
 
-### 6. Rodar
-```sh
+# 6. rodar
 npm start
 ```
-Abra **http://127.0.0.1:7788** no navegador. Pronto. 🎉
 
-> `npm start` monta a tela e sobe o servidor juntos, numa porta só. Para desenvolver com recarga automática, rode o backend (`npm run dev`) e a tela (`npm --prefix web run dev`) em dois terminais.
+Abra **http://127.0.0.1:7788**. Pronto.
 
----
+> `npm start` monta a tela e sobe o servidor juntos. Para desenvolver com recarga automática: `npm run dev` (backend) e `npm --prefix web run dev` (tela), em dois terminais.
 
 ## Configuração (`.env`)
 
 | Variável | Para quê |
 |---|---|
-| `JIRA_BASE_URL` | URL do seu Jira (ex.: `https://suaempresa.atlassian.net`) |
+| `JIRA_BASE_URL` | URL do seu Jira (`https://suaempresa.atlassian.net`) |
 | `JIRA_EMAIL` | seu e-mail Atlassian |
 | `JIRA_API_TOKEN` | token do Jira (Atlassian → Security → API tokens) |
 | `JIRA_JQL` | o que acompanhar (padrão: suas tasks) |
 | `CLAUDE_CODE_OAUTH_TOKEN` | token do `claude setup-token` (habilita o agente) |
-| `TIMESHEET_REPOS` | caminhos dos seus repos locais, separados por vírgula (habilita o timesheet) |
+| `TIMESHEET_REPOS` | caminhos dos seus repos locais, separados por vírgula |
 | `AUTO_LOG_ON_COMMIT` | `1` lança as horas no Jira ao commitar |
 | `PORT` | porta do app (padrão `7788`) |
 
-Você também pode conectar o Jira pela **tela** (botão *Conexão*), sem editar arquivo.
+Também dá para conectar o Jira pela **tela** (botão *Conexão*), sem editar arquivo.
 
 ## Instruções do agente (`AGENT.md`)
 
-O arquivo **`AGENT.md`** na raiz guia como o agente age e se comunica — incluindo o padrão **Feito / Falta / Status** e a sequência de fechamento de uma task. Edite à vontade (pela tela, botão *Instruções*, ou direto no arquivo). O `CLAUDE.md` de cada repositório também é respeitado.
+O arquivo **`AGENT.md`** na raiz guia como o agente age e se comunica — inclui o padrão **Feito / Falta / Status** e a sequência de fechamento de uma task. Edite pela tela (botão *Instruções*) ou no arquivo. O `CLAUDE.md` de cada repositório também é respeitado.
 
 ## Privacidade
 
-Tudo roda **na sua máquina**. As credenciais ficam no seu `.env` local (fora do git). Os dados coletados ficam em `./data/` (também fora do git). Nada é enviado para servidores de terceiros além do seu próprio Jira e da API do Claude (quando você usa o agente).
+Tudo roda **na sua máquina**. Credenciais ficam no `.env` local e os dados coletados em `./data/` — ambos **fora do git**. Nada é enviado a terceiros além do seu próprio Jira e da API do Claude (quando você usa o agente).
 
 ## Stack
 
 **Backend:** Node 22, TypeScript, Fastify, Zod · **Frontend:** React 18, Vite, React Query, Framer Motion · **IA:** Claude Agent SDK · **Integrações:** Jira REST API, git, GitHub CLI (`gh`).
-

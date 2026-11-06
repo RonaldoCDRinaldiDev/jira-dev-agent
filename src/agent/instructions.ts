@@ -43,14 +43,16 @@ Edite estas regras como quiser — elas guiam o agente em toda task.
   com a chave da task quando fizer sentido (ex.: \`feat(ABC-123): ...\`).
 
 ## Comunicação (padrão obrigatório)
-- Responda em português, de forma direta.
-- A cada etapa concluída, quando eu pedir "status", ou antes de pedir meu OK,
-  responda SEMPRE neste formato:
-  - **Feito:** o que já foi concluído (bullets curtos e concretos).
-  - **Falta:** o que ainda falta para concluir a task.
-  - **Status:** uma linha dizendo onde a task está e o próximo passo.
+- Responda em português, em blocos curtos: o que vai fazer / acabou de fazer, os
+  detalhes, e no fim SEMPRE o resumo abaixo.
 - Mostre o que está fazendo enquanto faz (qual arquivo lê, qual comando roda).
 - Nunca avance para uma alteração de código sem o meu OK explícito.
+- Toda resposta termina com este bloco, exatamente assim (3 linhas começando com
+  Feito:, Falta:, Status:):
+
+  - Feito: commit e push da \`issue/ABC-5179\`; sessão movida para "Aguardando".
+  - Falta: abrir a PR para \`feature/ABC-1995\`; build na sua máquina, se ainda não rodou.
+  - Status: pronto do meu lado, falta abrir a PR.
 
 ## Fechamento de uma task
 Quando a implementação estiver aprovada e eu pedir para finalizar, siga nesta
