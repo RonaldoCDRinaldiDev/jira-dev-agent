@@ -63,6 +63,10 @@ Uma conversa ao vivo, como no Claude Code, só que nesta tela: o agente **lê o 
 
 <img src="docs/img/feat-agente.svg" alt="Aba Agente (chat)" width="100%" />
 
+No começo da task, o agente faz um **levantamento detalhado** — lê o código envolvido (sem alterar nada), aponta a causa e propõe um plano objetivo, e só começa a codar depois do seu OK:
+
+<img src="docs/img/feat-agente-inicio.svg" alt="Agente fazendo o levantamento da task" width="100%" />
+
 Na hora de fechar, você manda o agente **finalizar** e ele executa tudo no chat — commit, push, abre o PR, move a task no Jira e lança as horas — terminando com o resumo **Feito / Falta / Status**:
 
 <img src="docs/img/feat-agente-finalizar.svg" alt="Agente finalizando a task" width="100%" />
