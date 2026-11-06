@@ -10,14 +10,23 @@ export function adfToText(node: unknown): string {
   return kids;
 }
 
-/** Converte texto simples no ADF minimo que a API do Jira aceita em comentarios. */
+/**
+ * Converte texto simples no ADF que a API do Jira aceita em comentarios.
+ * Paragrafos em linhas em branco; quebras simples viram hardBreak (preserva o
+ * formato do relatorio). Nunca gera text node vazio (invalido no ADF).
+ */
 export function textToAdf(text: string) {
-  return {
-    type: "doc",
-    version: 1,
-    content: text.split(/\n{2,}/).map((para) => ({
-      type: "paragraph",
-      content: [{ type: "text", text: para }],
-    })),
-  };
+  const paras = (text || "").split(/\n{2,}/);
+  const content = paras.map((para) => {
+    const lines = para.split("\n");
+    const nodes: Array<Record<string, unknown>> = [];
+    lines.forEach((line, i) => {
+      if (i > 0) nodes.push({ type: "hardBreak" });
+      if (line.length) nodes.push({ type: "text", text: line });
+    });
+    return nodes.length
+      ? { type: "paragraph", content: nodes }
+      : { type: "paragraph" }; // paragrafo vazio e valido
+  });
+  return { type: "doc", version: 1, content: content.length ? content : [{ type: "paragraph" }] };
 }

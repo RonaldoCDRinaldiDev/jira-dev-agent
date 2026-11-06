@@ -2,8 +2,9 @@ import { execFile } from "node:child_process";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { config } from "../config/index.js";
-import { jiraRequest } from "../jira/client.js";
+import { jiraRequest, transitionTo, addComment } from "../jira/client.js";
 import { textToAdf } from "../agent/adf.js";
+import { getReview } from "../review-agent/index.js";
 
 /**
  * Code review: aprova/mergeia PRs da task via GitHub CLI (`gh`) e move a issue
@@ -157,4 +158,90 @@ export async function moveToDoneStatus(
   if (comment?.trim()) payload.update = { comment: [{ add: { body: textToAdf(comment) } }] };
   await jiraRequest("POST", `/rest/api/3/issue/${encodeURIComponent(key)}/transitions`, payload);
   return { moved: true, transition: tr.name, to: tr.to?.name };
+}
+
+export interface ConcludeResult {
+  verdict: "aprovado" | "reprovado" | "indefinido";
+  moved: boolean;
+  wouldMove?: boolean;
+  to?: string;
+  commented: boolean;
+  reason?: string;
+}
+
+/** Monta o comentario detalhado para o Jira a partir do relatorio do review. */
+function buildReviewComment(
+  r: { agentType: string; baseBranch: string; findings: string },
+  verdict: ConcludeResult["verdict"],
+): string {
+  const head =
+    verdict === "aprovado"
+      ? `✅ Code review (${r.agentType}) — SEM ajustes obrigatórios.`
+      : verdict === "reprovado"
+        ? `❌ Code review (${r.agentType}) — AJUSTES OBRIGATÓRIOS.`
+        : `Code review (${r.agentType}) — resultado da revisão:`;
+  const body = (r.findings || "").trim();
+  const capped =
+    body.length > 8000
+      ? body.slice(0, 8000) + "\n\n…(relatório truncado — veja o relatório completo gerado pelo agente)"
+      : body;
+  return `${head}\n\nChange Set: ${r.baseBranch}...HEAD\n\n${capped}`;
+}
+
+/**
+ * Conclui o review: le o relatorio guardado, decide pelo veredito e age no Jira.
+ * - Aprovado  -> move para o status de conclusao (com resolucao) + comenta o resumo.
+ * - Reprovado -> comenta o relatorio DETALHADO e devolve a issue (status de reprovacao).
+ * dry=true so simula (nao comenta nem move).
+ */
+export async function concludeReview(key: string, dry: boolean): Promise<ConcludeResult> {
+  const review = getReview(key);
+  if (!review) {
+    return {
+      verdict: "indefinido",
+      moved: false,
+      commented: false,
+      reason: "Rode a revisão antes de mover o status.",
+    };
+  }
+  const t = review.findings || "";
+  const reprovado = /AJUSTES OBRIGAT|❌/i.test(t);
+  const aprovado = !reprovado && /(SEM AJUSTES|✅)/i.test(t);
+  const verdict: ConcludeResult["verdict"] = reprovado
+    ? "reprovado"
+    : aprovado
+      ? "aprovado"
+      : "indefinido";
+  const comment = buildReviewComment(review, verdict);
+
+  // Aprovado: fluxo de conclusao (status de done + resolucao), comentando o resumo.
+  if (verdict === "aprovado") {
+    const r = await moveToDoneStatus(key, dry, comment);
+    return {
+      verdict,
+      moved: r.moved,
+      ...(r.wouldMove !== undefined ? { wouldMove: r.wouldMove } : {}),
+      ...(r.to ? { to: r.to } : {}),
+      commented: !dry && r.moved,
+      ...(r.reason ? { reason: r.reason } : {}),
+    };
+  }
+
+  // Reprovado/indefinido: devolve a issue e comenta o relatorio detalhado.
+  const target = config.review.rejectedStatus;
+  if (dry) return { verdict, moved: false, wouldMove: true, to: target, commented: false };
+
+  let commented = false;
+  try {
+    await addComment(key, textToAdf(comment)); // o relatorio PRECISA chegar no Jira
+    commented = true;
+  } catch {
+    /* se o comentario falhar, ainda tentamos mover e reportamos */
+  }
+  try {
+    await transitionTo(key, target);
+    return { verdict, moved: true, to: target, commented };
+  } catch (e) {
+    return { verdict, moved: false, to: target, commented, reason: (e as Error).message };
+  }
 }

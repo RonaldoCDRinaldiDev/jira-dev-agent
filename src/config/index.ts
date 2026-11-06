@@ -58,6 +58,8 @@ const Schema = z.object({
   // Fim de review: status destino e resolucao a preencher na transicao.
   REVIEW_DONE_STATUS: z.string().default("Done"),
   REVIEW_RESOLUTION: z.string().default("Done"),
+  // Review reprovado: status para onde volta a issue (ex.: devolver ao dev).
+  REVIEW_REJECTED_STATUS: z.string().default("In Progress"),
   // Convencao de branch do PR a revisar (head). Ex.: "issue/" -> issue/ABC-123.
   REVIEW_HEAD_PREFIX: z.string().default("issue/"),
   CLAUDE_BIN: z.string().optional(),
@@ -111,6 +113,7 @@ export const config = {
     reviewerField: c.REVIEWER_FIELD ?? "",
     doneStatus: c.REVIEW_DONE_STATUS,
     resolution: c.REVIEW_RESOLUTION,
+    rejectedStatus: c.REVIEW_REJECTED_STATUS,
     headPrefix: c.REVIEW_HEAD_PREFIX,
   },
   agent: { claudeBin: c.CLAUDE_BIN ?? "", gatedActions: csv(c.GATED_ACTIONS) },

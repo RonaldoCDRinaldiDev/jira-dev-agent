@@ -15,7 +15,7 @@ import {
   resumeSession,
 } from "../timesheet/index.js";
 import { finalizeTask } from "../agent/finalize.js";
-import { reviewPullRequests, moveToDoneStatus } from "../review/index.js";
+import { reviewPullRequests, concludeReview } from "../review/index.js";
 import { runReview, getReview, type ReviewAgentType } from "../review-agent/index.js";
 import { capabilities, agentModeLabel } from "../agent/capabilities.js";
 import { policyTable } from "../agent/policy.js";
@@ -143,9 +143,11 @@ export function buildServer() {
     "/api/review/pr",
     async (req) => reviewPullRequests(req.body.key, req.body.dry ?? true),
   );
-  app.post<{ Body: { key: string; dry?: boolean; comment?: string } }>(
+  // Concluir review: decide pelo veredito, comenta o relatório detalhado e move
+  // a issue (aprovado -> conclusão; reprovado -> devolve ao dev).
+  app.post<{ Body: { key: string; dry?: boolean } }>(
     "/api/review/done",
-    async (req) => moveToDoneStatus(req.body.key, req.body.dry ?? true, req.body.comment),
+    async (req) => concludeReview(req.body.key, req.body.dry ?? true),
   );
 
   // ---- Agente: SEMPRE propoe-e-espera. Executar so via /decide (voce). ----

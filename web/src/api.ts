@@ -227,8 +227,33 @@ export const useRunReview = (key: string | null) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["review", key] }),
   });
 };
-export const useReviewActions = (key: string | null) => ({
-  analyzePr: useMutation({ mutationFn: () => postJson("/api/review/pr", { key, dry: true }) }),
-  approvePr: useMutation({ mutationFn: () => postJson("/api/review/pr", { key, dry: false }) }),
-  moveStatus: useMutation({ mutationFn: () => postJson("/api/review/done", { key, dry: false }) }),
-});
+export interface PrReview {
+  repo: string; number?: number; url?: string; base?: string;
+  approved: boolean; merged: boolean; approvable: boolean; reason?: string;
+}
+export interface ConcludeResult {
+  verdict: "aprovado" | "reprovado" | "indefinido";
+  moved: boolean; wouldMove?: boolean; to?: string; commented: boolean; reason?: string;
+}
+// Verifica as PRs da task (dry-run) automaticamente, para habilitar/desabilitar o aprovar.
+export const usePrStatus = (key: string | null, enabled: boolean) =>
+  useQuery({
+    queryKey: ["pr-status", key],
+    queryFn: () => postJson<PrReview[]>("/api/review/pr", { key, dry: true }),
+    enabled: !!key && enabled,
+    refetchOnWindowFocus: false,
+  });
+
+export const useReviewActions = (key: string | null) => {
+  const qc = useQueryClient();
+  const invalPr = () => qc.invalidateQueries({ queryKey: ["pr-status", key] });
+  return {
+    approvePr: useMutation({
+      mutationFn: () => postJson<PrReview[]>("/api/review/pr", { key, dry: false }),
+      onSuccess: invalPr,
+    }),
+    moveStatus: useMutation({
+      mutationFn: () => postJson<ConcludeResult>("/api/review/done", { key, dry: false }),
+    }),
+  };
+};

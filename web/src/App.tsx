@@ -17,6 +17,7 @@ import {
   useReviewState,
   useRunReview,
   useReviewActions,
+  usePrStatus,
   type Notification,
   type ReviewAgentType,
 } from "./api.js";
@@ -754,6 +755,7 @@ function ReviewPanel({ preset }: { preset: { key: string; n: number } | null }) 
   const { data: result } = useReviewState(key);
   const run = useRunReview(key);
   const act = useReviewActions(key);
+  const prStatus = usePrStatus(key, !!result); // verifica as PRs sozinho quando há review
 
   useEffect(() => {
     if (preset) {
@@ -764,6 +766,9 @@ function ReviewPanel({ preset }: { preset: { key: string; n: number } | null }) 
   }, [preset?.n]);
 
   const canRun = (key ?? draft) && repo && base && !run.isPending;
+  const prs = prStatus.data ?? [];
+  const anyApprovable = prs.some((p) => p.approvable && !p.merged);
+  const allMerged = prs.length > 0 && prs.every((p) => p.merged);
 
   return (
     <div className="panel">
@@ -814,20 +819,95 @@ function ReviewPanel({ preset }: { preset: { key: string; n: number } | null }) 
       {result && (
         <div className="review-wrap">
           <ReviewReport result={result} />
+          {/* Status das PRs — verificado automaticamente */}
+          <div className="pr-status">
+            <div className="pr-status-head">
+              <span className="pr-status-title">PULL REQUESTS</span>
+              <button className="linkish" disabled={prStatus.isFetching} onClick={() => prStatus.refetch()}>
+                {prStatus.isFetching ? "verificando…" : "atualizar"}
+              </button>
+            </div>
+            {prStatus.isLoading ? (
+              <div className="ar-line muted">Verificando PRs da task…</div>
+            ) : prs.length > 0 ? (
+              prs.map((p, i) => (
+                <div key={i} className="ar-line">
+                  <span className="ar-repo">
+                    {p.url ? <a href={p.url} target="_blank" rel="noreferrer">{p.repo}{p.number ? ` #${p.number}` : ""}</a>
+                           : <>{p.repo}{p.number ? ` #${p.number}` : ""}</>}
+                  </span>
+                  <span className={`ar-tag ${p.merged || p.approvable ? "ok" : "warn"}`}>
+                    {p.merged ? "mergeada" : p.approvable ? "pronta p/ merge" : (p.reason ?? "não mergeável")}
+                  </span>
+                </div>
+              ))
+            ) : (
+              <div className="ar-line muted">Nenhuma PR aberta para esta task.</div>
+            )}
+          </div>
+
           <div className="prop-actions">
-            <button className="btn sm ghost" onClick={() => act.analyzePr.mutate()}>
-              Analisar PR
+            <button
+              className="btn sm"
+              title={anyApprovable ? "Aprova e faz merge das PRs prontas." : "Nenhuma PR pronta pra merge."}
+              disabled={!anyApprovable || act.approvePr.isPending || prStatus.isFetching}
+              onClick={() => act.approvePr.mutate()}
+            >
+              {act.approvePr.isPending ? "Aprovando…" : allMerged ? "PRs já mergeadas" : "Aprovar + mergear PR"}
             </button>
-            <button className="btn sm" onClick={() => act.approvePr.mutate()}>
-              Aprovar + mergear PR
-            </button>
-            <button className="btn sm ghost" onClick={() => act.moveStatus.mutate()}>
-              Mover status (fim de review)
+            <button
+              className="btn sm ghost"
+              title="Pelo veredito do review: aprovado conclui a task; reprovado devolve ao dev e comenta o relatório."
+              disabled={act.moveStatus.isPending}
+              onClick={() => act.moveStatus.mutate()}
+            >
+              {act.moveStatus.isPending ? "Movendo…" : "Concluir / mover status"}
             </button>
           </div>
+
+          {!prStatus.isLoading && prs.length > 0 && !anyApprovable && !allMerged && (
+            <p className="act-warn">
+              ⚠ Nenhuma PR pronta pra merge agora (rascunho ou conflito). Resolva e clique em “atualizar”.
+            </p>
+          )}
+
+          {act.approvePr.data && (
+            <div className="act-result">
+              {act.approvePr.data.map((p, i) => (
+                <div key={i} className="ar-line">
+                  <span className="ar-repo">{p.repo}{p.number ? ` #${p.number}` : ""}</span>
+                  <span className={`ar-tag ${p.merged ? "ok" : "warn"}`}>
+                    {p.merged ? "mergeada ✓" : (p.reason ?? "não mergeou")}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {act.moveStatus.data && (
+            <div className={`act-result verdict-${act.moveStatus.data.verdict}`}>
+              <div className="ar-line">
+                <strong>
+                  {act.moveStatus.data.verdict === "aprovado"
+                    ? "✅ Aprovado"
+                    : act.moveStatus.data.verdict === "reprovado"
+                      ? "❌ Reprovado"
+                      : "Resultado"}
+                </strong>
+                <span>
+                  {act.moveStatus.data.moved
+                    ? `issue movida para "${act.moveStatus.data.to}"`
+                    : `não moveu${act.moveStatus.data.reason ? `: ${act.moveStatus.data.reason}` : ""}`}
+                  {act.moveStatus.data.commented ? " · relatório comentado no Jira" : ""}
+                </span>
+              </div>
+            </div>
+          )}
+
           <p className="act-hint">
-            Revisão é read-only. Estas ações usam o GitHub CLI e o Jira — exigem{" "}
-            <code>gh</code> autenticado.
+            A revisão é read-only. <strong>Concluir</strong> usa o veredito: se aprovado,
+            conclui a task; se reprovado, devolve ao dev e <strong>comenta o relatório
+            detalhado no Jira</strong>. As ações de PR usam o GitHub CLI (<code>gh</code> autenticado).
           </p>
         </div>
       )}
