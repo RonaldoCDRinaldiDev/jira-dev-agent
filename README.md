@@ -29,7 +29,7 @@ O **jira-dev-agent** junta tudo num **cockpit local**. E, ao contrário da maior
 Tudo começa na aba **Notificações**. A partir de um aviso, uma coisa puxa a outra — e você só precisa aprovar o que mexe em código. Passo a passo:
 
 1. **Chega uma mudança no Jira** (novo status, um comentário, uma task nova) e ela aparece no feed.
-2. Você clica em **Trabalhar na task** — um botão só. O app **olha a task e decide sozinho** o destino: se *você* é o **reviewer**, vai pro **Code Review**; se é o **responsável**, vai pro **agente de dev**. Em ambos os casos o **cronômetro liga** (aba Horas) e a aba certa abre já com o contexto da issue.
+2. Você clica em **Trabalhar na task** — um botão só. O app **olha a task e decide sozinho** o destino: se _você_ é o **reviewer**, vai pro **Code Review**; se é o **responsável**, vai pro **agente de dev**. Em ambos os casos o **cronômetro liga** (aba Horas) e a aba certa abre já com o contexto da issue.
 3. **Se foi pro dev**, no **chat** o agente faz o levantamento, te explica o plano e **vai codando — mas pede sua permissão antes de cada alteração**. Você acompanha tudo em tempo real, e a cada resposta ele fecha com um resumo **Feito / Falta / Status**, então você nunca fica perdido.
 4. Quando o trabalho está pronto, você manda **finalizar**. O agente **pede uma última confirmação** e, com o seu "sim", fecha a task de ponta a ponta sem você precisar fazer nada manual:
    - **commita** as mudanças aprovadas,
@@ -37,11 +37,11 @@ Tudo começa na aba **Notificações**. A partir de um aviso, uma coisa puxa a o
    - **move a task no Jira**,
    - **comenta a resolução** na própria issue,
    - e **lança as horas** trabalhadas no Jira.
-5. **Se foi pro Code Review**, o agente lê o *Change Set* (sua branch × a branch base), roda as checagens e te dá um **veredito**. Dali você **Aprova + mergeia** (aprova/mergeia a PR, move pra *Pending Deploy*, comenta que passou e lança as horas do review) ou **Reprova a task** (move pra *Fail* e comenta o motivo detalhado). As horas do review também são lançadas.
+5. **Se foi pro Code Review**, o agente lê o _Change Set_ (sua branch × a branch base), roda as checagens e te dá um **veredito**. Dali você **Aprova + mergeia** (aprova/mergeia a PR, move pra _Pending Deploy_, comenta que passou e lança as horas do review) ou **Reprova a task** (move pra _Fail_ e comenta o motivo detalhado). As horas do review também são lançadas.
 
 Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo** — da primeira notificação até o PR aberto e as horas lançadas, sem sair desta tela.
 
-> **Por que não é 100% automático?** Tecnicamente, dá para deixar esse agente totalmente autônomo — ele recebe a notificação, desenvolve, commita, abre o PR e fecha a task sozinho, sem ninguém no meio. **Foi uma decisão não fazer assim (ainda).** A proposta aqui é *aumentar a produtividade sem abrir mão do controle*: a IA faz o trabalho pesado, mas quem mexe em código só avança com o seu OK, e você revisa cada etapa. Isso evita erros passando direto e mantém você no comando. A automação total fica como um próximo passo possível — ligável quando a confiança no fluxo estiver madura.
+> **Por que não é 100% automático?** Tecnicamente, dá para deixar esse agente totalmente autônomo — ele recebe a notificação, desenvolve, commita, abre o PR e fecha a task sozinho, sem ninguém no meio. **Foi uma decisão não fazer assim (ainda).** A proposta aqui é _aumentar a produtividade sem abrir mão do controle_: a IA faz o trabalho pesado, mas quem mexe em código só avança com o seu OK, e você revisa cada etapa. Isso evita erros passando direto e mantém você no comando. A automação total fica como um próximo passo possível — ligável quando a confiança no fluxo estiver madura.
 
 ---
 
@@ -55,7 +55,7 @@ Na primeira vez que você abre o app, cai direto nesta tela. É o "login" da fer
 
 Como funciona, em resumo:
 
-- **O API token** é gerado por você em *Atlassian → Account settings → Security → Create API token*. Ele substitui a senha e você pode revogá-lo quando quiser. Cole no campo e clique em **Conectar** — o app valida a credencial no seu Jira na hora e, se der certo, já carrega o feed.
+- **O API token** é gerado por você em _Atlassian → Account settings → Security → Create API token_. Ele substitui a senha e você pode revogá-lo quando quiser. Cole no campo e clique em **Conectar** — o app valida a credencial no seu Jira na hora e, se der certo, já carrega o feed.
 - **Tudo fica na sua máquina.** As credenciais são salvas localmente (em `./data/`, fora do git) e nunca são enviadas a terceiros — só ao seu próprio Jira. Nada de servidor no meio.
 - **Dá pra reabrir quando quiser** pelo botão **Conexão** no topo (por exemplo, pra trocar de conta ou atualizar o token). Também dá pra configurar por arquivo, preenchendo o `.env` em vez da tela.
 - **A IA do agente usa um token à parte** (o do seu Claude), gerado uma vez com `claude setup-token` e colado no `.env` — ele não entra nesta tela porque não é uma credencial do Jira. Sem ele, o app funciona normalmente; só o chat do agente fica desligado.
@@ -72,7 +72,7 @@ Conta o tempo de trabalho **pela branch do git** (ex.: `feature/ACME-312`), desc
 
 <img src="docs/img/feat-horas.svg" alt="Aba Horas" width="100%" />
 
-### 🤖 Agente de desenvolvimento — chat com portões
+### 🤖 Agente de desenvolvimento
 
 Uma conversa ao vivo, como no Claude Code, só que nesta tela: o agente **lê o código**, mostra **o que está fazendo** (arquivos que lê, comandos que roda), explica o plano e **pede sua permissão antes de editar ou commitar**. Ele responde no padrão **Feito / Falta / Status** e segue o `AGENT.md` + o `CLAUDE.md` do repositório.
 
@@ -88,7 +88,7 @@ Na hora de fechar, você manda o agente **finalizar** e ele executa tudo no chat
 
 ### 🔍 Code Review — revisão automática
 
-Um agente **read-only** que revisa o *Change Set* (sua branch × a branch base), roda as skills de revisão (segurança, arquitetura, testes, impacto…) e entrega os **findings com severidade** e um **veredito**. Dali você pode **analisar / aprovar o PR** e **mover o status** no Jira.
+Um agente **read-only** que revisa o _Change Set_ (sua branch × a branch base), roda as skills de revisão (segurança, arquitetura, testes, impacto…) e entrega os **findings com severidade** e um **veredito**. Dali você pode **analisar / aprovar o PR** e **mover o status** no Jira.
 
 <img src="docs/img/feat-review.svg" alt="Aba Code Review" width="100%" />
 
@@ -172,22 +172,22 @@ Abra **http://127.0.0.1:7788**. Pronto.
 
 ## Configuração (`.env`)
 
-| Variável | Para quê |
-|---|---|
-| `JIRA_BASE_URL` | URL do seu Jira (`https://suaempresa.atlassian.net`) |
-| `JIRA_EMAIL` | seu e-mail Atlassian |
-| `JIRA_API_TOKEN` | token do Jira (Atlassian → Security → API tokens) |
-| `JIRA_JQL` | o que acompanhar (padrão: suas tasks) |
-| `CLAUDE_CODE_OAUTH_TOKEN` | token do `claude setup-token` (habilita o agente) |
-| `TIMESHEET_REPOS` | caminhos dos seus repos locais, separados por vírgula |
-| `AUTO_LOG_ON_COMMIT` | `1` lança as horas no Jira ao commitar |
-| `PORT` | porta do app (padrão `7788`) |
+| Variável                  | Para quê                                              |
+| ------------------------- | ----------------------------------------------------- |
+| `JIRA_BASE_URL`           | URL do seu Jira (`https://suaempresa.atlassian.net`)  |
+| `JIRA_EMAIL`              | seu e-mail Atlassian                                  |
+| `JIRA_API_TOKEN`          | token do Jira (Atlassian → Security → API tokens)     |
+| `JIRA_JQL`                | o que acompanhar (padrão: suas tasks)                 |
+| `CLAUDE_CODE_OAUTH_TOKEN` | token do `claude setup-token` (habilita o agente)     |
+| `TIMESHEET_REPOS`         | caminhos dos seus repos locais, separados por vírgula |
+| `AUTO_LOG_ON_COMMIT`      | `1` lança as horas no Jira ao commitar                |
+| `PORT`                    | porta do app (padrão `7788`)                          |
 
-Também dá para conectar o Jira pela **tela** (botão *Conexão*), sem editar arquivo.
+Também dá para conectar o Jira pela **tela** (botão _Conexão_), sem editar arquivo.
 
 ## Instruções do agente (`AGENT.md`)
 
-O arquivo **`AGENT.md`** na raiz guia como o agente age e se comunica — inclui o padrão **Feito / Falta / Status** e a sequência de fechamento de uma task. Edite pela tela (botão *Instruções*) ou no arquivo. O `CLAUDE.md` de cada repositório também é respeitado.
+O arquivo **`AGENT.md`** na raiz guia como o agente age e se comunica — inclui o padrão **Feito / Falta / Status** e a sequência de fechamento de uma task. Edite pela tela (botão _Instruções_) ou no arquivo. O `CLAUDE.md` de cada repositório também é respeitado.
 
 ## Privacidade
 
