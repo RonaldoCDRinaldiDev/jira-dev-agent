@@ -41,6 +41,8 @@ Tudo começa na aba **Notificações**. A partir de um aviso, uma coisa puxa a o
 
 Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo** — da primeira notificação até o PR aberto e as horas lançadas, sem sair desta tela.
 
+> **Por que não é 100% automático?** Tecnicamente, dá para deixar esse agente totalmente autônomo — ele recebe a notificação, desenvolve, commita, abre o PR e fecha a task sozinho, sem ninguém no meio. **Foi uma decisão não fazer assim (ainda).** A proposta aqui é *aumentar a produtividade sem abrir mão do controle*: a IA faz o trabalho pesado, mas quem mexe em código só avança com o seu OK, e você revisa cada etapa. Isso evita erros passando direto e mantém você no comando. A automação total fica como um próximo passo possível — ligável quando a confiança no fluxo estiver madura.
+
 ---
 
 ## Funcionalidades

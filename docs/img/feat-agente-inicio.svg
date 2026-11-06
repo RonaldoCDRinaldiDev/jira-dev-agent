@@ -7,11 +7,11 @@
   <rect x="24" y="56" width="420" height="30" rx="9" fill="#2a2b37"/><text x="38" y="76" font-size="12.5" fill="#f5f3ef">ACME-312</text>
   <rect x="456" y="56" width="420" height="30" rx="9" fill="#2a2b37"/><text x="470" y="76" font-size="12.5" fill="#85838f">~/projetos/portal-pedidos</text>
 
-  <!-- usuário pede o levantamento -->
-  <rect x="458" y="98" width="418" height="30" rx="12" fill="url(#or)"/><text x="476" y="118" font-size="12.5" fill="#2a160a">Faça o levantamento da ACME-312 e proponha um plano.</text>
+  <!-- usuário só diz em qual task vamos trabalhar -->
+  <rect x="620" y="98" width="256" height="30" rx="12" fill="url(#or)"/><text x="638" y="118" font-size="12.5" fill="#2a160a">Vamos trabalhar na ACME-312.</text>
 
-  <!-- agente investiga -->
-  <rect x="24" y="138" width="430" height="30" rx="12" fill="#22232d" stroke="#353745"/><text x="40" y="158" font-size="12.5" fill="#f5f3ef">Entendi. Vou ler o código envolvido antes de propor algo.</text>
+  <!-- agente lê a descrição, classifica e investiga -->
+  <rect x="24" y="138" width="540" height="30" rx="12" fill="#22232d" stroke="#353745"/><text x="40" y="158" font-size="12.5" fill="#f5f3ef">Pela descrição, é uma correção de bug. Vou ler o código antes de propor.</text>
 
   <!-- ferramentas de leitura (read-only) -->
   <rect x="24" y="176" width="320" height="28" rx="9" fill="#2a2b37" stroke="#353745"/><text x="38" y="195" font-size="12" fill="#ffb57c">⚙</text><text x="56" y="195" font-size="12" fill="#b7b5c0" font-family="monospace">Read · src/export/ReportService.ts</text>

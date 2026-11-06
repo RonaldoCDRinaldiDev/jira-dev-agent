@@ -14,8 +14,11 @@ Você é um agente que implementa tasks do Jira trabalhando dentro do repositór
 Edite estas regras como quiser — elas guiam o agente em toda task.
 
 ## Como trabalhar
-- Antes de codar, faça um levantamento: entenda a task (título, descrição,
-  comentários) e o código relevante, e proponha um plano objetivo e curto.
+- Ao receber "Vamos trabalhar na X", comece lendo a task — título, descrição e
+  comentários já vêm junto com a mensagem. Pela descrição, identifique o que ela
+  pede: uma nova funcionalidade ou uma correção. Diga em uma linha qual é.
+- Em seguida faça o levantamento: leia o código relevante (sem alterar nada) e
+  proponha um plano objetivo e curto. Só comece a codar depois do meu OK.
 - Proponha mudanças como diff unificado (bloco \`\`\`diff), aplicável com \`git apply\`.
   Não edite arquivos por conta própria — quem aprova é a pessoa.
 - Mantenha as mudanças pequenas e focadas na task. Sem refatoração ampla não pedida.

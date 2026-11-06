@@ -9,6 +9,7 @@ import {
   fetchRepoFor,
   useTimesheet,
   useTimesheetAction,
+  useFinalize,
   useSetupStatus,
   useSetup,
   useInstructions,
@@ -32,7 +33,26 @@ const KIND_LABEL: Record<Notification["kind"], string> = {
 function fmtMin(min: number) {
   const h = Math.floor(min / 60);
   const m = min % 60;
-  return h ? `${h}h ${m}min` : `${m}min`;
+  return h ? `${h}h ${m.toString().padStart(2, "0")}min` : `${m}min`;
+}
+
+function fmtClock(ms: number) {
+  const s = Math.max(0, Math.floor(ms / 1000));
+  const h = Math.floor(s / 3600);
+  const m = Math.floor((s % 3600) / 60);
+  const sec = s % 60;
+  return `${h}:${m.toString().padStart(2, "0")}:${sec.toString().padStart(2, "0")}`;
+}
+
+const WEEKDAYS = ["domingo", "segunda", "terça", "quarta", "quinta", "sexta", "sábado"];
+function fmtDay(iso: string) {
+  // iso = YYYY-MM-DD
+  const [y, m, d] = iso.split("-").map(Number);
+  const dt = new Date(y!, (m ?? 1) - 1, d);
+  const hoje = new Date();
+  const isHoje = dt.toDateString() === hoje.toDateString();
+  const label = `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")} · ${WEEKDAYS[dt.getDay()]}`;
+  return isHoje ? `Hoje · ${label}` : label;
 }
 
 function Header({
@@ -229,8 +249,8 @@ function Feed({
   onWork,
   onReview,
 }: {
-  onWork: (key: string) => void;
-  onReview: (key: string) => void;
+  onWork: (n: Notification) => void;
+  onReview: (n: Notification) => void;
 }) {
   const { data, isLoading, error } = useNotifications();
   const { remove, markRead } = useNotifActions();
@@ -270,10 +290,10 @@ function Feed({
               <div className="comment-body" dangerouslySetInnerHTML={{ __html: n.commentHtml }} />
             )}
             <div className="item-actions">
-              <button className="btn sm" onClick={() => onWork(n.key)}>
+              <button className="btn sm" onClick={() => onWork(n)}>
                 Enviar ao agente
               </button>
-              <button className="btn sm ghost" onClick={() => onReview(n.key)}>
+              <button className="btn sm ghost" onClick={() => onReview(n)}>
                 Enviar ao review
               </button>
               {!n.read && (
@@ -319,56 +339,121 @@ function Feed({
 
 function TimesheetPanel() {
   const { data, isLoading } = useTimesheet();
-  const { start, stop, discard } = useTimesheetAction();
+  const { start, discard, pause, resume } = useTimesheetAction();
+  const finalize = useFinalize();
+  const [now, setNow] = useState(Date.now());
+  const [result, setResult] = useState<import("./api.js").FinalizeResult | null>(null);
+
+  // relógio vivo: tica de 1 em 1s enquanto houver sessão rodando (não pausada).
+  const running = !!data?.active && !data.active.paused;
+  useEffect(() => {
+    if (!running) return;
+    const id = setInterval(() => setNow(Date.now()), 1000);
+    return () => clearInterval(id);
+  }, [running]);
+
   if (isLoading) return <p className="muted pad">Carregando...</p>;
-  if (!data) return <p className="muted pad">Timesheet indisponivel.</p>;
-  const entries = Object.entries(data.entries);
+  if (!data) return <p className="muted pad">Timesheet indisponível.</p>;
+
+  const active = data.active;
+  const liveMs = active
+    ? active.paused
+      ? active.minutes * 60_000
+      : now - active.startedAt - active.pausedAccumMs
+    : 0;
+
+  const doFinalize = () => {
+    if (!active) return;
+    finalize.mutate(
+      { key: active.key, ...(active.repo ? { repo: active.repo } : {}) },
+      { onSuccess: (r) => setResult(r) },
+    );
+  };
+
   return (
-    <div className="panel">
-      <div className="row">
-        <div>
-          <span className="muted">Task ativa pela branch: </span>
-          <strong>{data.activeBranchKey ?? "nenhuma"}</strong>
-        </div>
-        {data.active ? (
-          <div className="active-session">
-            <span className="pill on">
-              ▶ {data.active.key} · {fmtMin(data.active.minutes)}
-            </span>
-            <button className="btn sm" onClick={() => stop.mutate()}>
-              Parar
-            </button>
-            <button className="btn sm ghost" onClick={() => discard.mutate()}>
-              Descartar
-            </button>
+    <div className="panel ts">
+      <div className="ts-eyebrow">EM DESENVOLVIMENTO</div>
+      {active ? (
+        <div className={`ts-active${active.paused ? " paused" : ""}`}>
+          <div className="ts-active-info">
+            <div className="ts-active-top">
+              <span className="key">{active.key}</span>
+              {active.summary && <span className="ts-active-sum">{active.summary}</span>}
+            </div>
+            <div className="ts-active-sub">
+              {active.paused ? "pausado" : "contando"} · lança sozinho ao commitar
+            </div>
           </div>
-        ) : (
-          data.activeBranchKey && (
-            <button
-              className="btn sm"
-              onClick={() => start.mutate({ key: data.activeBranchKey! })}
-            >
+          <div className="ts-clock">{fmtClock(liveMs)}</div>
+          <div className="ts-active-actions">
+            {active.paused ? (
+              <button className="btn sm" onClick={() => resume.mutate()}>▶ Retomar</button>
+            ) : (
+              <button className="btn sm ghost" onClick={() => pause.mutate()}>⏸ Pausar</button>
+            )}
+            <button className="btn sm" disabled={finalize.isPending} onClick={doFinalize}>
+              {finalize.isPending ? "Finalizando..." : "✓ Finalizar"}
+            </button>
+            <button className="btn sm ghost danger" onClick={() => discard.mutate()}>✕ Remover</button>
+          </div>
+        </div>
+      ) : (
+        <div className="ts-active empty">
+          <span className="muted">
+            Nenhuma task em andamento.
+            {data.activeBranchKey ? " Branch detectada: " : ""}
+            {data.activeBranchKey && <strong> {data.activeBranchKey}</strong>}
+          </span>
+          {data.activeBranchKey && (
+            <button className="btn sm" onClick={() => start.mutate({ key: data.activeBranchKey! })}>
               Iniciar {data.activeBranchKey}
             </button>
-          )
-        )}
-      </div>
-      <h3 className="sub">Hoje</h3>
-      {entries.length === 0 ? (
-        <p className="muted">Nenhuma hora registrada hoje.</p>
+          )}
+        </div>
+      )}
+
+      {result && (
+        <div className={`finalize-result ${result.ok ? "ok" : "warn"}`}>
+          <div className="fr-head">
+            <strong>{result.ok ? "✓ Task finalizada" : "Finalização com pendências"}</strong>
+            <button className="item-x" onClick={() => setResult(null)}>×</button>
+          </div>
+          <ul className="fr-steps">
+            {result.steps.map((s) => (
+              <li key={s.step} className={s.ok ? "ok" : "fail"}>
+                <span className="fr-ico">{s.ok ? "✓" : "✕"}</span>
+                <span className="fr-step">{s.step}</span>
+                <span className="fr-detail">{s.detail}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
+      <div className="ts-eyebrow mt">DESENVOLVIDAS · ÚLTIMOS 14 DIAS</div>
+      {data.days.length === 0 ? (
+        <p className="muted">Nenhuma hora registrada ainda.</p>
       ) : (
-        <ul className="ts-list">
-          {entries.map(([slot, e]) => (
-            <li key={slot} className="ts-item">
-              <span className="key">{e.key}</span>
-              <span className="sum">{e.summary ?? ""}</span>
-              <span className="mins">{fmtMin(e.minutes)}</span>
-              <span className={`tag ${e.logged ? "ok" : ""}`}>
-                {e.logged ? "lancado" : "pendente"}
-              </span>
-            </li>
-          ))}
-        </ul>
+        data.days.map((d) => (
+          <div key={d.day} className="ts-day">
+            <div className="ts-day-head">
+              <span className="ts-day-label">{fmtDay(d.day)}</span>
+              <span className="ts-day-total">total do dia: {fmtMin(d.total)}</span>
+            </div>
+            <ul className="ts-list">
+              {d.entries.map((e) => (
+                <li key={e.slot} className="ts-item">
+                  <span className="key">{e.key}</span>
+                  <span className="sum">{e.summary ?? ""}</span>
+                  <span className="ts-spent">{fmtMin(e.minutes)}</span>
+                  <span className={`ts-status ${e.logged ? "ok" : ""}`}>
+                    {e.logged ? "✓ lançado" : "• não lançado"}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        ))
       )}
     </div>
   );
@@ -436,7 +521,7 @@ function AgentBody({ text }: { text: string }) {
   );
 }
 
-function AgentPanel({ preset }: { preset: { key: string; n: number } | null }) {
+function AgentPanel({ preset }: { preset: { key: string; n: number; msg?: string } | null }) {
   const [key, setKey] = useState("");
   const [repo, setRepo] = useState("");
   const [msgs, setMsgs] = useState<ChatMsg[]>([]);
@@ -449,7 +534,7 @@ function AgentPanel({ preset }: { preset: { key: string; n: number } | null }) {
   useEffect(() => {
     if (preset) {
       setKey(preset.key);
-      setInput(`Faça o levantamento da task ${preset.key} e proponha um plano objetivo. Aguarde meu OK antes de qualquer alteração.`);
+      setInput(preset.msg ?? `Vamos trabalhar na ${preset.key}.`);
       fetchRepoFor(preset.key).then((r) => r && setRepo(r)); // repo automático
     }
   }, [preset?.n]);
@@ -591,6 +676,69 @@ function AgentPanel({ preset }: { preset: { key: string; n: number } | null }) {
   );
 }
 
+// Renderização de markdown em blocos: #/##/### títulos, listas, parágrafos.
+function Markdown({ text }: { text: string }) {
+  const lines = text.split("\n");
+  const out: React.ReactNode[] = [];
+  lines.forEach((raw, i) => {
+    const l = raw.trimEnd();
+    if (l.trim() === "") return;
+    const h = l.match(/^(#{1,4})\s+(.*)$/);
+    if (h) {
+      const lvl = h[1]!.length;
+      out.push(<div key={i} className={`md-h md-h${lvl}`}>{inline(h[2]!)}</div>);
+    } else if (/^\s*[-*]\s+/.test(l)) {
+      out.push(<p key={i} className="md-li">{inline(l.replace(/^\s*[-*]\s+/, ""))}</p>);
+    } else if (/^\s*\d+\.\s+/.test(l)) {
+      out.push(<p key={i} className="md-li num">{inline(l.replace(/^\s*/, ""))}</p>);
+    } else {
+      out.push(<p key={i} className="md-p">{inline(l)}</p>);
+    }
+  });
+  return <div className="md">{out}</div>;
+}
+
+function count(t: string, re: RegExp) {
+  return (t.match(re) || []).length;
+}
+function ReviewReport({ result }: { result: { agentType: ReviewAgentType; baseBranch: string; findings: string } }) {
+  const t = result.findings || "";
+  const crit = count(t, /🔴/g) || count(t, /\bCR[ÍI]TICO\b/gi);
+  const alerta = count(t, /🟡/g) || count(t, /\bALERTA\b/gi);
+  const sug = count(t, /🟢/g) || count(t, /\bSUGEST[ÃA]O\b/gi);
+  const findings = count(t, /\bCR-\d+/g);
+  const reprovado = /AJUSTES OBRIGAT|❌/i.test(t);
+  const aprovado = !reprovado && /(SEM AJUSTES|✅)/i.test(t);
+  const label = REVIEW_TYPES.find((x) => x.v === result.agentType)?.label ?? result.agentType;
+  return (
+    <div className="review-report">
+      <div className="rr-head">
+        <span className="rr-eyebrow">CODE REVIEW</span>
+        <h3>{label}</h3>
+        <div className="rr-chips">
+          <span className="rr-chip add">+ HEAD</span>
+          <span className="rr-chip del">− {result.baseBranch}</span>
+          <span className="rr-chip-note">= Change Set revisado</span>
+        </div>
+      </div>
+      <div className="rr-counts">
+        <div className="rr-count"><span>Findings</span><strong>{findings || "—"}</strong></div>
+        <div className="rr-count crit"><span>🔴 Críticos</span><strong>{crit}</strong></div>
+        <div className="rr-count alerta"><span>🟡 Alertas</span><strong>{alerta}</strong></div>
+        <div className="rr-count sug"><span>🟢 Sugestões</span><strong>{sug}</strong></div>
+      </div>
+      {(aprovado || reprovado) && (
+        <div className={`rr-verdict ${reprovado ? "fail" : "ok"}`}>
+          {reprovado ? "❌ AJUSTES OBRIGATÓRIOS" : "✅ SEM AJUSTES OBRIGATÓRIOS"}
+        </div>
+      )}
+      <div className="rr-body">
+        <Markdown text={t} />
+      </div>
+    </div>
+  );
+}
+
 const REVIEW_TYPES: { v: ReviewAgentType; label: string }[] = [
   { v: "backend", label: "Back-end" },
   { v: "frontend", label: "Front-end" },
@@ -664,15 +812,8 @@ function ReviewPanel({ preset }: { preset: { key: string; n: number } | null }) 
       )}
 
       {result && (
-        <div className="proposal">
-          <div className="prop-head">
-            <span className="badge gate">findings</span>
-            <strong>
-              Review {REVIEW_TYPES.find((t) => t.v === result.agentType)?.label} ·{" "}
-              {result.baseBranch}...HEAD
-            </strong>
-          </div>
-          <pre className="prop-body">{result.findings}</pre>
+        <div className="review-wrap">
+          <ReviewReport result={result} />
           <div className="prop-actions">
             <button className="btn sm ghost" onClick={() => act.analyzePr.mutate()}>
               Analisar PR
@@ -700,20 +841,28 @@ export function App() {
   const [tab, setTab] = useState<Tab>("feed");
   const [showSetup, setShowSetup] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
-  const [preset, setPreset] = useState<{ key: string; n: number } | null>(null);
+  const [preset, setPreset] = useState<{ key: string; n: number; msg?: string } | null>(null);
   const [reviewPreset, setReviewPreset] = useState<{ key: string; n: number } | null>(null);
   const { data: status } = useSetupStatus();
   const { start } = useTimesheetAction();
 
+  // Monta o comando inicial a partir da notificação que originou a ação.
+  // (O contexto da issue é injetado pelo backend de qualquer forma; aqui só
+  // damos o foco certo pro agente — ex.: apontar pro comentário novo.)
+  const openingMsg = (n: Notification) =>
+    n.kind === "comment"
+      ? `Vamos trabalhar na ${n.key}. Veja o último comentário e me proponha o plano.`
+      : `Vamos trabalhar na ${n.key}.`;
+
   // Automação central: a partir de uma notificação, liga tudo na mesma task.
-  const workOn = (key: string) => {
-    start.mutate({ key }); // 1) liga o cronômetro (Horas)
-    setPreset({ key, n: Date.now() }); // 2) manda a task pro Agente
+  const workOn = (n: Notification) => {
+    start.mutate({ key: n.key }); // 1) liga o cronômetro (Horas)
+    setPreset({ key: n.key, n: Date.now(), msg: openingMsg(n) }); // 2) manda pro Agente
     setTab("agente"); // 3) abre o Agente
   };
-  const workReview = (key: string) => {
-    start.mutate({ key });
-    setReviewPreset({ key, n: Date.now() });
+  const workReview = (n: Notification) => {
+    start.mutate({ key: n.key });
+    setReviewPreset({ key: n.key, n: Date.now() });
     setTab("review");
   };
 

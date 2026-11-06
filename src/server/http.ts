@@ -11,7 +11,10 @@ import {
   startSession,
   stopSession,
   discardSession,
+  pauseSession,
+  resumeSession,
 } from "../timesheet/index.js";
+import { finalizeTask } from "../agent/finalize.js";
 import { reviewPullRequests, moveToDoneStatus } from "../review/index.js";
 import { runReview, getReview, type ReviewAgentType } from "../review-agent/index.js";
 import { capabilities, agentModeLabel } from "../agent/capabilities.js";
@@ -109,6 +112,13 @@ export function buildServer() {
   );
   app.post("/api/timesheet/stop", async () => ({ ok: true, key: stopSession() }));
   app.post("/api/timesheet/discard", async () => ({ ok: true, key: discardSession() }));
+  app.post("/api/timesheet/pause", async () => ({ ok: pauseSession() }));
+  app.post("/api/timesheet/resume", async () => ({ ok: resumeSession() }));
+
+  // Finalizar a task em UMA acao: commit -> PR -> Jira -> comentario -> horas.
+  app.post<{
+    Body: { key: string; repo?: string; message?: string; resolution?: string };
+  }>("/api/agent/finalize", async (req) => finalizeTask(req.body));
 
   // ---- Agente de Code Review (read-only sobre o Change Set) ----
   app.get<{ Querystring: { key: string } }>(

@@ -116,4 +116,11 @@ export async function addWorklog(
   });
 }
 
+/** Adiciona um comentario (em ADF) numa issue. */
+export async function addComment(key: IssueKey, commentAdf: unknown): Promise<void> {
+  await jiraRequest("POST", `/rest/api/3/issue/${encodeURIComponent(key)}/comment`, {
+    body: commentAdf,
+  });
+}
+
 export { jiraRequest };

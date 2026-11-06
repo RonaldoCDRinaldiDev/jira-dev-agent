@@ -151,6 +151,67 @@ export function discardSession(): string | null {
   return stopSession();
 }
 
+/** Pausa a sessao ativa (congela o tempo; o restante acumula como pausa). */
+export function pauseSession(): boolean {
+  if (!session || session.paused) return false;
+  writeSessionMinutes(elapsedMin(session)); // grava o que ja contou
+  session.paused = true;
+  session.pausedAt = Date.now();
+  saveSession();
+  return true;
+}
+
+/** Retoma a sessao pausada. */
+export function resumeSession(): boolean {
+  if (!session || !session.paused) return false;
+  if (session.pausedAt) session.pausedAccumMs += Date.now() - session.pausedAt;
+  session.paused = false;
+  session.pausedAt = null;
+  saveSession();
+  return true;
+}
+
+export interface FinalizedSession {
+  key: string;
+  slot: string;
+  day: string;
+  minutes: number;
+  startedAt: number;
+  repo: string | null;
+  summary: string;
+}
+
+/**
+ * Fecha a sessao ativa: grava os minutos finais e para. Devolve os dados para
+ * quem for lancar as horas (worklog) e abrir PR / mover Jira. NAO lanca sozinho.
+ */
+export function finalizeSession(): FinalizedSession | null {
+  if (!session) return null;
+  const mins = Math.max(elapsedMin(session), activeMs(session) > 0 ? 1 : 0);
+  const info: FinalizedSession = {
+    key: session.key,
+    slot: session.slot,
+    day: session.day,
+    minutes: mins,
+    startedAt: session.startedAt,
+    repo: session.repo,
+    summary: session.summary,
+  };
+  writeSessionMinutes(mins);
+  stopSession();
+  return info;
+}
+
+/** Marca uma entrada como lancada no Jira (apos o worklog ser criado). */
+export function markEntryLogged(day: string, slot: string, worklogId?: string): void {
+  const ts = loadTs();
+  const e = ts[day]?.[slot];
+  if (!e) return;
+  e.logged = true;
+  if (worklogId) e.worklogId = worklogId;
+  saveTs(ts);
+}
+
 /** Lanca horas no Jira (worklog). */
 async function logWorklog(entry: Entry, startedMs: number): Promise<void> {
   const started = new Date(startedMs).toISOString().replace("Z", "+0000");
@@ -227,15 +288,45 @@ export function startTrackLoop(): void {
   }, 60_000);
 }
 
-/** Estado para a UI: dia atual + sessao ativa. */
+/** Estado para a UI: ultimos 14 dias agrupados + sessao ativa. */
 export function timesheetState() {
-  const d = today();
   const ts = loadTs();
+  const activeSlot = session?.slot;
+  const activeDay = session?.day;
+  const days = Object.keys(ts)
+    .sort()
+    .reverse()
+    .slice(0, 14)
+    .map((day) => {
+      const entries = Object.entries(ts[day]!)
+        // nao duplica a task que esta em andamento (ela aparece em "Em desenvolvimento")
+        .filter(([slot]) => !(day === activeDay && slot === activeSlot))
+        .map(([slot, e]) => ({
+          slot,
+          key: e.key,
+          minutes: e.minutes,
+          logged: e.logged,
+          source: e.source,
+          summary: e.summary ?? "",
+        }))
+        .sort((a, b) => b.minutes - a.minutes);
+      const total = entries.reduce((s, e) => s + (e.minutes || 0), 0);
+      return { day, total, entries };
+    })
+    .filter((d) => d.entries.length > 0);
   return {
-    day: d,
-    entries: ts[d] ?? {},
+    days,
     active: session
-      ? { key: session.key, slot: session.slot, minutes: elapsedMin(session), paused: session.paused }
+      ? {
+          key: session.key,
+          slot: session.slot,
+          minutes: elapsedMin(session),
+          paused: session.paused,
+          startedAt: session.startedAt,
+          pausedAccumMs: session.pausedAccumMs,
+          summary: session.summary,
+          repo: session.repo,
+        }
       : null,
     activeBranchKey: activeTaskKey(config.timesheet.repos),
   };

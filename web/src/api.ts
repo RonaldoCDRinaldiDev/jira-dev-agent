@@ -89,12 +89,18 @@ export const fetchRepoFor = (key: string): Promise<string> =>
 
 // ---- Timesheet ----
 export interface TimesheetEntry {
-  key: string; minutes: number; source: string; logged: boolean; summary?: string;
+  slot: string; key: string; minutes: number; source: string; logged: boolean; summary?: string;
+}
+export interface TimesheetDay {
+  day: string; total: number; entries: TimesheetEntry[];
+}
+export interface TimesheetActive {
+  key: string; slot: string; minutes: number; paused: boolean;
+  startedAt: number; pausedAccumMs: number; summary?: string; repo?: string | null;
 }
 export interface TimesheetState {
-  day: string;
-  entries: Record<string, TimesheetEntry>;
-  active: { key: string; slot: string; minutes: number; paused: boolean } | null;
+  days: TimesheetDay[];
+  active: TimesheetActive | null;
   activeBranchKey: string | null;
 }
 async function postJson<T>(url: string, body?: unknown): Promise<T> {
@@ -115,7 +121,24 @@ export const useTimesheetAction = () => {
     start: useMutation({ mutationFn: (v: { key: string; summary?: string }) => postJson("/api/timesheet/start", v), onSuccess: inval }),
     stop: useMutation({ mutationFn: () => postJson("/api/timesheet/stop"), onSuccess: inval }),
     discard: useMutation({ mutationFn: () => postJson("/api/timesheet/discard"), onSuccess: inval }),
+    pause: useMutation({ mutationFn: () => postJson("/api/timesheet/pause"), onSuccess: inval }),
+    resume: useMutation({ mutationFn: () => postJson("/api/timesheet/resume"), onSuccess: inval }),
   };
+};
+
+// ---- Finalizar a task (acao unica: commit -> PR -> Jira -> comentario -> horas) ----
+export interface FinalizeStep { step: string; ok: boolean; detail: string; }
+export interface FinalizeResult { key: string; ok: boolean; steps: FinalizeStep[]; }
+export const useFinalize = () => {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: (v: { key: string; repo?: string; message?: string; resolution?: string }) =>
+      postJson<FinalizeResult>("/api/agent/finalize", v),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ["timesheet"] });
+      qc.invalidateQueries({ queryKey: ["notifications"] });
+    },
+  });
 };
 
 // ---- Agente (fluxo com portoes) ----
