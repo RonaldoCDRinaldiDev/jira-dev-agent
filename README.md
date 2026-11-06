@@ -16,11 +16,11 @@
 
 ---
 
-## O que é e por que
+## Visão geral
 
-No dia a dia o desenvolvedor fica **pulando entre ferramentas**: Jira, editor, cronômetro, IA no terminal, GitHub no navegador. Cada troca custa tempo e atenção.
+No dia a dia, o desenvolvedor vive **alternando entre ferramentas**: Jira, editor, cronômetro, IA no terminal e GitHub no navegador. Cada troca de contexto custa tempo e concentração.
 
-O **jira-dev-agent** junta tudo num **cockpit local**. E, ao contrário da maioria dos agentes de IA que fazem tudo sozinhos, aqui a regra é o **seu controle**: a IA mostra o que está fazendo e **espera o seu OK** antes de qualquer alteração.
+O **jira-dev-agent** reúne esse fluxo em um **cockpit local** — um único lugar para acompanhar o Jira, controlar as horas, conversar com o agente de desenvolvimento e revisar código. E, diferente da maioria dos agentes de IA que agem sozinhos, aqui o princípio é o **seu controle**: a IA mostra o que está fazendo e **aguarda sua aprovação** antes de qualquer alteração.
 
 ---
 
