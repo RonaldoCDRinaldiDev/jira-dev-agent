@@ -84,17 +84,7 @@ flowchart LR
   class S,PR,J auto
 ```
 
-### Capturas de tela
 
-**Notificações** — o feed, com quem fez cada mudança, o pai da issue, e as ações:
-
-<img src="docs/img/screen-notificacoes.svg" alt="Aba Notificações" width="100%" />
-
-**Agente** — conversa ao vivo: ele mostra o que lê/roda e pede permissão antes de editar:
-
-<img src="docs/img/screen-agente.svg" alt="Aba Agente (chat)" width="100%" />
-
----
 
 ## Como clonar e usar (em qualquer máquina)
 
