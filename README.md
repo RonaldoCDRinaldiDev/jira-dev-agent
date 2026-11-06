@@ -49,7 +49,7 @@ Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo*
 
 ### 🔔 Notificações — a base de tudo
 
-O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você clica em **Trabalhar na task** e o app decide sozinho o destino — **reviewer = você → Code Review**, **responsável = você → agente de dev** —, já ligando o cronômetro. Também dá pra **marcar como lida** ou **excluir**.
+O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você clica em **Trabalhar na task** e o app decide sozinho o destino — **reviewer = você → Code Review**, **responsável = você → agente de dev** —, já ligando o cronômetro. Também dá pra **excluir** um item do feed.
 
 <img src="docs/img/feat-notificacoes.svg" alt="Aba Notificações" width="100%" />
 

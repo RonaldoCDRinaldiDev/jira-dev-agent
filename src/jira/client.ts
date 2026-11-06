@@ -73,6 +73,48 @@ export async function getMyself(): Promise<{ accountId: string; displayName: str
   return jiraRequest("GET", "/rest/api/3/myself");
 }
 
+/**
+ * Campo "reviewer" do Jira. Resolve do config (id ou nome) ou DESCOBRE sozinho
+ * um campo customizado de usuario cujo nome lembra "revisor/review". Cacheado:
+ * undefined = ainda nao resolvido; null = nao existe.
+ */
+let reviewerFieldId: string | null | undefined;
+export async function getReviewerFieldId(): Promise<string | null> {
+  if (reviewerFieldId !== undefined) return reviewerFieldId;
+  reviewerFieldId = null;
+  try {
+    const fields = await jiraRequest<Array<{ id: string; name?: string; custom?: boolean; schema?: { type?: string; custom?: string } }>>(
+      "GET",
+      "/rest/api/3/field",
+    );
+    if (!Array.isArray(fields)) return reviewerFieldId;
+    const cfg = config.review.reviewerField;
+    if (cfg) {
+      const f = fields.find(
+        (x) => x.id === cfg || (x.name ?? "").toLowerCase() === cfg.toLowerCase(),
+      );
+      reviewerFieldId = f ? f.id : null;
+    } else {
+      const f = fields.find((x) => {
+        const t = (x.schema?.type || x.schema?.custom) ?? "";
+        return !!x.custom && /user/i.test(t) && /revis|review/i.test(x.name ?? "");
+      });
+      reviewerFieldId = f ? f.id : null;
+    }
+  } catch {
+    /* mantem null */
+  }
+  return reviewerFieldId;
+}
+
+/** accountIds no valor do campo reviewer (pode ser 1 usuario ou lista). */
+function reviewerAccountIds(fields: Record<string, any>, fieldId: string | null): string[] {
+  if (!fieldId) return [];
+  const v = fields[fieldId];
+  const arr = Array.isArray(v) ? v : v ? [v] : [];
+  return arr.map((u) => u?.accountId).filter(Boolean) as string[];
+}
+
 /** Decide se a task e pra DESENVOLVER ou REVISAR, olhando quem e voce nela. */
 export async function routeForTask(
   key: IssueKey,
@@ -81,15 +123,15 @@ export async function routeForTask(
   const issue = await getIssue(key);
   const f = ((issue as unknown as { fields?: Record<string, any> }).fields) ?? {};
   const assignee: string | undefined = f.assignee?.accountId;
-  const field = config.review.reviewerField;
-  const reviewer: string | undefined = field ? f[field]?.accountId : undefined;
+  const fieldId = await getReviewerFieldId();
+  const reviewers = reviewerAccountIds(f, fieldId);
   const statusName: string = f.status?.name ?? "";
   const inReview = config.review.statuses.some(
     (s) => s.toLowerCase() === statusName.toLowerCase(),
   );
 
   // Regra: reviewer = você -> code review; responsável = você -> dev.
-  if (reviewer && reviewer === me.accountId)
+  if (reviewers.includes(me.accountId))
     return { target: "review", reason: "você é o reviewer desta task" };
   if (assignee && assignee === me.accountId)
     return { target: "dev", reason: "você é o responsável desta task" };

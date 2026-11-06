@@ -253,7 +253,7 @@ function Feed({
   onWork: (n: Notification) => void;
 }) {
   const { data, isLoading, error } = useNotifications();
-  const { remove, markRead } = useNotifActions();
+  const { remove } = useNotifActions();
   const [confirmId, setConfirmId] = useState<string | null>(null);
   if (isLoading) return <p className="muted pad">Carregando...</p>;
   if (error) return <p className="muted pad">Erro ao carregar notificacoes.</p>;
@@ -293,11 +293,6 @@ function Feed({
               <button className="btn sm" onClick={() => onWork(n)}>
                 Trabalhar na task
               </button>
-              {!n.read && (
-                <button className="btn sm ghost" onClick={() => markRead.mutate(n.id)}>
-                  Marcar lida
-                </button>
-              )}
             </div>
           </motion.li>
         ))}
