@@ -4,7 +4,9 @@ import { join } from "node:path";
 import { config } from "../config/index.js";
 import { jiraRequest, transitionTo, addComment } from "../jira/client.js";
 import { textToAdf } from "../agent/adf.js";
+import { effects } from "../agent/effects.js";
 import { getReview } from "../review-agent/index.js";
+import { timesheetState, finalizeSession, markEntryLogged } from "../timesheet/index.js";
 
 /**
  * Code review: aprova/mergeia PRs da task via GitHub CLI (`gh`) e move a issue
@@ -160,88 +162,98 @@ export async function moveToDoneStatus(
   return { moved: true, transition: tr.name, to: tr.to?.name };
 }
 
-export interface ConcludeResult {
-  verdict: "aprovado" | "reprovado" | "indefinido";
-  moved: boolean;
-  wouldMove?: boolean;
-  to?: string;
-  commented: boolean;
+export interface WorklogOutcome {
+  minutes: number;
+  logged: boolean;
   reason?: string;
 }
 
-/** Monta o comentario detalhado para o Jira a partir do relatorio do review. */
-function buildReviewComment(
-  r: { agentType: string; baseBranch: string; findings: string },
-  verdict: ConcludeResult["verdict"],
-): string {
-  const head =
-    verdict === "aprovado"
-      ? `✅ Code review (${r.agentType}) — SEM ajustes obrigatórios.`
-      : verdict === "reprovado"
-        ? `❌ Code review (${r.agentType}) — AJUSTES OBRIGATÓRIOS.`
-        : `Code review (${r.agentType}) — resultado da revisão:`;
-  const body = (r.findings || "").trim();
-  const capped =
-    body.length > 8000
-      ? body.slice(0, 8000) + "\n\n…(relatório truncado — veja o relatório completo gerado pelo agente)"
-      : body;
-  return `${head}\n\nChange Set: ${r.baseBranch}...HEAD\n\n${capped}`;
+/**
+ * Loga as horas gastas NO CODE REVIEW: finaliza a sessao ativa (se for desta task)
+ * e lanca o worklog no Jira com o comentario de review. Nunca derruba o fluxo.
+ */
+async function logReviewHours(key: string): Promise<WorklogOutcome> {
+  const st = timesheetState();
+  if (!st.active || st.active.key !== key) {
+    return { minutes: 0, logged: false, reason: "sem sessão ativa desta task" };
+  }
+  const fin = finalizeSession();
+  if (!fin || fin.minutes <= 0) return { minutes: 0, logged: false, reason: "sessão sem minutos" };
+  try {
+    const startedIso = new Date(fin.startedAt).toISOString().replace("Z", "+0000");
+    await effects.logWorklog(key, fin.minutes, config.review.worklogComment, startedIso);
+    markEntryLogged(fin.day, fin.slot);
+    return { minutes: fin.minutes, logged: true };
+  } catch (e) {
+    return { minutes: fin.minutes, logged: false, reason: (e as Error).message };
+  }
+}
+
+export interface ApproveResult {
+  prs: PrReview[];
+  jira: MoveResult;
+  worklog: WorklogOutcome;
 }
 
 /**
- * Conclui o review: le o relatorio guardado, decide pelo veredito e age no Jira.
- * - Aprovado  -> move para o status de conclusao (com resolucao) + comenta o resumo.
- * - Reprovado -> comenta o relatorio DETALHADO e devolve a issue (status de reprovacao).
- * dry=true so simula (nao comenta nem move).
+ * APROVAR + MERGEAR: aprova e mergeia a(s) PR(s), e so se todas forem mergeadas
+ * move a issue para o status de aprovacao (Pending Deploy) com um comentario de
+ * que passou na revisao. Sempre loga as horas gastas no review.
  */
-export async function concludeReview(key: string, dry: boolean): Promise<ConcludeResult> {
+export async function approveAndComplete(key: string): Promise<ApproveResult> {
+  const prs = await reviewPullRequests(key, false);
+  const prsOk = prs.length > 0 && prs.every((p) => p.merged);
+  let jira: MoveResult;
+  if (prsOk) {
+    const comment =
+      `✅ Code review aprovado — passou na revisão, sem ajustes obrigatórios.\n` +
+      `PR(s) aprovada(s) e mergeada(s). Seguindo para ${config.review.doneStatus}.`;
+    jira = await moveToDoneStatus(key, false, comment);
+  } else {
+    const reason = !prs.length
+      ? "nenhuma PR aberta da issue encontrada"
+      : prs.filter((p) => !p.merged).map((p) => `${p.repo}${p.number ? "#" + p.number : ""}: ${p.reason}`).join("; ");
+    jira = { moved: false, reason: `não movi para ${config.review.doneStatus}: ${reason}` };
+  }
+  const worklog = await logReviewHours(key);
+  return { prs, jira, worklog };
+}
+
+export interface RejectResult {
+  moved: boolean;
+  to?: string;
+  commented: boolean;
+  worklog: WorklogOutcome;
+  reason?: string;
+}
+
+/**
+ * REPROVAR a task: comenta no Jira, em detalhe, o porque reprovou (relatorio do
+ * agente de review ou motivo informado) e move a issue para o status de reprovacao
+ * (Fail). Sempre loga as horas gastas no review. Nao mexe na PR.
+ */
+export async function rejectTask(key: string, note?: string): Promise<RejectResult> {
   const review = getReview(key);
-  if (!review) {
-    return {
-      verdict: "indefinido",
-      moved: false,
-      commented: false,
-      reason: "Rode a revisão antes de mover o status.",
-    };
-  }
-  const t = review.findings || "";
-  const reprovado = /AJUSTES OBRIGAT|❌/i.test(t);
-  const aprovado = !reprovado && /(SEM AJUSTES|✅)/i.test(t);
-  const verdict: ConcludeResult["verdict"] = reprovado
-    ? "reprovado"
-    : aprovado
-      ? "aprovado"
-      : "indefinido";
-  const comment = buildReviewComment(review, verdict);
-
-  // Aprovado: fluxo de conclusao (status de done + resolucao), comentando o resumo.
-  if (verdict === "aprovado") {
-    const r = await moveToDoneStatus(key, dry, comment);
-    return {
-      verdict,
-      moved: r.moved,
-      ...(r.wouldMove !== undefined ? { wouldMove: r.wouldMove } : {}),
-      ...(r.to ? { to: r.to } : {}),
-      commented: !dry && r.moved,
-      ...(r.reason ? { reason: r.reason } : {}),
-    };
-  }
-
-  // Reprovado/indefinido: devolve a issue e comenta o relatorio detalhado.
-  const target = config.review.rejectedStatus;
-  if (dry) return { verdict, moved: false, wouldMove: true, to: target, commented: false };
+  const body = (note?.trim() || review?.findings || "").trim();
+  const comment =
+    `❌ Code review reprovado — ajustes obrigatórios antes de seguir.\n\n` +
+    (body
+      ? (body.length > 8000 ? body.slice(0, 8000) + "\n\n…(relatório truncado — veja o relatório completo gerado pelo agente)" : body)
+      : "Veja os apontamentos da revisão.");
 
   let commented = false;
   try {
-    await addComment(key, textToAdf(comment)); // o relatorio PRECISA chegar no Jira
+    await addComment(key, textToAdf(comment)); // o motivo PRECISA chegar no Jira
     commented = true;
   } catch {
-    /* se o comentario falhar, ainda tentamos mover e reportamos */
+    /* ainda tentamos mover e logar horas */
   }
+  const target = config.review.rejectedStatus;
+  const worklog = await logReviewHours(key);
   try {
     await transitionTo(key, target);
-    return { verdict, moved: true, to: target, commented };
+    return { moved: true, to: target, commented, worklog };
   } catch (e) {
-    return { verdict, moved: false, to: target, commented, reason: (e as Error).message };
+    return { moved: false, to: target, commented, worklog, reason: (e as Error).message };
   }
 }

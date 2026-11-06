@@ -231,10 +231,10 @@ export interface PrReview {
   repo: string; number?: number; url?: string; base?: string;
   approved: boolean; merged: boolean; approvable: boolean; reason?: string;
 }
-export interface ConcludeResult {
-  verdict: "aprovado" | "reprovado" | "indefinido";
-  moved: boolean; wouldMove?: boolean; to?: string; commented: boolean; reason?: string;
-}
+export interface MoveResult { moved: boolean; wouldMove?: boolean; transition?: string; to?: string; reason?: string; }
+export interface WorklogOutcome { minutes: number; logged: boolean; reason?: string; }
+export interface ApproveResult { prs: PrReview[]; jira: MoveResult; worklog: WorklogOutcome; }
+export interface RejectResult { moved: boolean; to?: string; commented: boolean; worklog: WorklogOutcome; reason?: string; }
 // Verifica as PRs da task (dry-run) automaticamente, para habilitar/desabilitar o aprovar.
 export const usePrStatus = (key: string | null, enabled: boolean) =>
   useQuery({
@@ -246,14 +246,19 @@ export const usePrStatus = (key: string | null, enabled: boolean) =>
 
 export const useReviewActions = (key: string | null) => {
   const qc = useQueryClient();
-  const invalPr = () => qc.invalidateQueries({ queryKey: ["pr-status", key] });
+  const inval = () => {
+    qc.invalidateQueries({ queryKey: ["pr-status", key] });
+    qc.invalidateQueries({ queryKey: ["timesheet"] });
+    qc.invalidateQueries({ queryKey: ["notifications"] });
+  };
   return {
-    approvePr: useMutation({
-      mutationFn: () => postJson<PrReview[]>("/api/review/pr", { key, dry: false }),
-      onSuccess: invalPr,
+    approve: useMutation({
+      mutationFn: () => postJson<ApproveResult>("/api/review/approve", { key }),
+      onSuccess: inval,
     }),
-    moveStatus: useMutation({
-      mutationFn: () => postJson<ConcludeResult>("/api/review/done", { key, dry: false }),
+    reject: useMutation({
+      mutationFn: () => postJson<RejectResult>("/api/review/reject", { key }),
+      onSuccess: inval,
     }),
   };
 };

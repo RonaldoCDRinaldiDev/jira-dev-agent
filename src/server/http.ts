@@ -15,7 +15,7 @@ import {
   resumeSession,
 } from "../timesheet/index.js";
 import { finalizeTask } from "../agent/finalize.js";
-import { reviewPullRequests, concludeReview } from "../review/index.js";
+import { reviewPullRequests, approveAndComplete, rejectTask } from "../review/index.js";
 import { runReview, getReview, type ReviewAgentType } from "../review-agent/index.js";
 import { capabilities, agentModeLabel } from "../agent/capabilities.js";
 import { policyTable } from "../agent/policy.js";
@@ -139,15 +139,20 @@ export function buildServer() {
   });
 
   // ---- Acoes de review (gh PRs + status no Jira) ----
+  // Checagem das PRs (dry-run): usada pela UI para habilitar/desabilitar o aprovar.
   app.post<{ Body: { key: string; dry?: boolean } }>(
     "/api/review/pr",
     async (req) => reviewPullRequests(req.body.key, req.body.dry ?? true),
   );
-  // Concluir review: decide pelo veredito, comenta o relatório detalhado e move
-  // a issue (aprovado -> conclusão; reprovado -> devolve ao dev).
-  app.post<{ Body: { key: string; dry?: boolean } }>(
-    "/api/review/done",
-    async (req) => concludeReview(req.body.key, req.body.dry ?? true),
+  // APROVAR + MERGEAR: aprova/mergeia PR, move p/ Pending Deploy + comentario, loga horas.
+  app.post<{ Body: { key: string } }>(
+    "/api/review/approve",
+    async (req) => approveAndComplete(req.body.key),
+  );
+  // REPROVAR task: comenta o motivo detalhado, move p/ Fail, loga horas.
+  app.post<{ Body: { key: string; note?: string } }>(
+    "/api/review/reject",
+    async (req) => rejectTask(req.body.key, req.body.note),
   );
 
   // ---- Agente: SEMPRE propoe-e-espera. Executar so via /decide (voce). ----
