@@ -37,7 +37,7 @@ Tudo começa na aba **Notificações**. A partir de um aviso, uma coisa puxa a o
    - **move a task no Jira** (para Code Review / concluído),
    - **comenta a resolução** na própria issue,
    - e **lança as horas** trabalhadas no Jira.
-5. **Code review é a mesma ideia.** Quando *você* é quem revisa, clica em **Enviar ao review**: o agente lê o *Change Set* (sua branch × a branch base), roda as checagens e te dá um **veredito** (passou ou precisa de ajuste). Dali, com um clique, você **aprova/mergeia o PR** e **move o status** no Jira.
+5. **Code review** acontece na aba própria. Quando *você* é quem revisa, abre a aba **Code Review**, aponta a task e a branch base, e o agente lê o *Change Set* (sua branch × a branch base), roda as checagens e te dá um **veredito** (passou ou precisa de ajuste). Dali você **Aprova + mergeia** (move pra *Pending Deploy*, comenta que passou e lança as horas do review) ou **Reprova** (move pra *Fail* e comenta o motivo detalhado).
 
 Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo** — da primeira notificação até o PR aberto e as horas lançadas, sem sair desta tela.
 
@@ -49,7 +49,7 @@ Resumindo: **você decide, o agente faz o trabalho chato e te mostra cada passo*
 
 ### 🔔 Notificações — a base de tudo
 
-O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você pode **Enviar ao agente** ou **Enviar ao review** (o que já liga o cronômetro e abre a task na aba certa), **marcar como lida** ou **excluir**.
+O feed do seu Jira em tempo real: mudanças de status, comentários, troca de responsável e novas issues — mostrando **quem fez** cada coisa e o **épico/pai** da task. É daqui que tudo parte: em cada item você pode **Enviar ao agente** (o que já liga o cronômetro e abre a task na aba Agente), **marcar como lida** ou **excluir**.
 
 <img src="docs/img/feat-notificacoes.svg" alt="Aba Notificações" width="100%" />
 
@@ -100,7 +100,7 @@ Tudo nasce na aba **Notificações** e cascateia para as outras:
 ```mermaid
 flowchart TD
   N["🔔 Notificações"] -->|Enviar ao agente| A["🤖 Agente"]
-  N -->|Enviar ao review| R["🔍 Code Review"]
+  R["🔍 Code Review (aba própria)"]
   N -->|liga o cronômetro| H["⏱ Horas"]
   A -->|ao commitar| H
 ```

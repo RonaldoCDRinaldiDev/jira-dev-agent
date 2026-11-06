@@ -248,10 +248,8 @@ function Guide() {
 
 function Feed({
   onWork,
-  onReview,
 }: {
   onWork: (n: Notification) => void;
-  onReview: (n: Notification) => void;
 }) {
   const { data, isLoading, error } = useNotifications();
   const { remove, markRead } = useNotifActions();
@@ -293,9 +291,6 @@ function Feed({
             <div className="item-actions">
               <button className="btn sm" onClick={() => onWork(n)}>
                 Enviar ao agente
-              </button>
-              <button className="btn sm ghost" onClick={() => onReview(n)}>
-                Enviar ao review
               </button>
               {!n.read && (
                 <button className="btn sm ghost" onClick={() => markRead.mutate(n.id)}>
@@ -917,7 +912,6 @@ export function App() {
   const [showSetup, setShowSetup] = useState(false);
   const [showInstructions, setShowInstructions] = useState(false);
   const [preset, setPreset] = useState<{ key: string; n: number; msg?: string } | null>(null);
-  const [reviewPreset, setReviewPreset] = useState<{ key: string; n: number } | null>(null);
   const { data: status } = useSetupStatus();
   const { start } = useTimesheetAction();
 
@@ -935,12 +929,6 @@ export function App() {
     setPreset({ key: n.key, n: Date.now(), msg: openingMsg(n) }); // 2) manda pro Agente
     setTab("agente"); // 3) abre o Agente
   };
-  const workReview = (n: Notification) => {
-    start.mutate({ key: n.key });
-    setReviewPreset({ key: n.key, n: Date.now() });
-    setTab("review");
-  };
-
   // Primeira vez (sem conexao configurada) abre a tela de login direto.
   const mustSetup = status !== undefined && !status.configured;
   if (mustSetup || showSetup) {
@@ -986,12 +974,12 @@ export function App() {
         {tab === "feed" && (
           <>
             <Guide />
-            <Feed onWork={workOn} onReview={workReview} />
+            <Feed onWork={workOn} />
           </>
         )}
         {tab === "horas" && <TimesheetPanel />}
         {tab === "agente" && <AgentPanel preset={preset} />}
-        {tab === "review" && <ReviewPanel preset={reviewPreset} />}
+        {tab === "review" && <ReviewPanel preset={null} />}
       </main>
     </div>
   );
